@@ -4,7 +4,7 @@ pandas==2.2.3
 devtools==0.12.2
 python-dotenv==1.2.2
 fastapi==0.115.9
-uvicorn==0.34.0
+uvicorn==0.49.0
 python-multipart==0.0.20
 aiosqlite==0.22.1
 ollama==0.5.2
