@@ -670,9 +670,11 @@ jobs:
         id: tauri-windows-config
         shell: pwsh
         run: |
+          $jsonDepth = 99
           $tauriConfigPath = "frontend/src-tauri/tauri.conf.json"
           $ciConfigFileName = "tauri.windows-ci-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT.json"
-          $ciConfigPath = "frontend/src-tauri/$ciConfigFileName"
+          $ciConfigPath = Join-Path "frontend/src-tauri" $ciConfigFileName
+          $ciConfigArgPath = "src-tauri/$ciConfigFileName"
           $tauriConfig = Get-Content $tauriConfigPath -Raw | ConvertFrom-Json
 
           $originalVersion = [string]$tauriConfig.version
@@ -684,7 +686,10 @@ jobs:
 
             if (-not [string]::IsNullOrWhiteSpace($preRelease)) {
               $numericPreRelease = $preRelease -match '^\d+$'
-              if (-not $numericPreRelease -or [int64]$preRelease -gt 65535) {
+              if (-not $numericPreRelease) {
+                $bundleVersion = $coreVersion
+                Write-Warning "Windows MSI bundling does not accept prerelease version '$originalVersion'; using '$bundleVersion' for this CI build."
+              } elseif ([int64]$preRelease -gt 65535) {
                 $bundleVersion = $coreVersion
                 Write-Warning "Windows MSI bundling does not accept prerelease version '$originalVersion'; using '$bundleVersion' for this CI build."
               }
@@ -695,9 +700,9 @@ jobs:
           }
 
           $tauriConfig.version = $bundleVersion
-          $tauriConfig | ConvertTo-Json -Depth 99 | Set-Content -Path $ciConfigPath -Encoding utf8
+          $tauriConfig | ConvertTo-Json -Depth $jsonDepth | Set-Content -Path $ciConfigPath -Encoding utf8
 
-          "config_arg=--config src-tauri/$ciConfigFileName" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "config_arg=--config $ciConfigArgPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "bundle_version=$bundleVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           Write-Host "Prepared Windows Tauri config at $ciConfigPath"
 
@@ -708,6 +713,7 @@ jobs:
           RAW_TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
+          $jsonDepth = 99
           $tauriSigningKey = $env:RAW_TAURI_SIGNING_PRIVATE_KEY
           $tauriSigningKeyPassword = $env:RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 
@@ -718,7 +724,7 @@ jobs:
               $ciConfigPath = "frontend/src-tauri/tauri.windows-ci-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT.json"
               $tauriConfig = Get-Content $ciConfigPath -Raw | ConvertFrom-Json
               $tauriConfig.bundle.createUpdaterArtifacts = $false
-              $tauriConfig | ConvertTo-Json -Depth 99 | Set-Content -Path $ciConfigPath -Encoding utf8
+              $tauriConfig | ConvertTo-Json -Depth $jsonDepth | Set-Content -Path $ciConfigPath -Encoding utf8
             } catch {
               Write-Error "Failed to update temporary Tauri config for unsigned build: $($_.Exception.Message)"
               exit 1
