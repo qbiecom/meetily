@@ -177,7 +177,7 @@ jobs:
       # Windows signing setup
       - name: Setup DigiCert KeyLocker
         if: contains(matrix.platform, 'windows') && github.event.inputs.sign-build == 'true'
-        uses: digicert/ssm-code-signing@v1.1.1
+        uses: digicert/ssm-code-signing@v1.2.1
 
       - name: Setup DigiCert Environment
         if: contains(matrix.platform, 'windows') && github.event.inputs.sign-build == 'true'

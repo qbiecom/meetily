@@ -116,7 +116,7 @@ jobs:
 
       - name: Setup DigiCert KeyLocker
         if: ${{ github.event.inputs.sign-build == 'true' }}
-        uses: digicert/ssm-code-signing@v1.1.1
+        uses: digicert/ssm-code-signing@v1.2.1
 
       - name: Sync Certificate to Windows Certificate Store
         if: ${{ github.event.inputs.sign-build == 'true' }}
