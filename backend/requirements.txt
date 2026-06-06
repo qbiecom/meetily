@@ -1,5 +1,5 @@
 pydantic-ai==0.2.15
-pydantic==2.11.5
+pydantic==2.13.4
 pandas==2.2.3
 devtools==0.12.2
 python-dotenv==1.2.2
