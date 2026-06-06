@@ -1,6 +1,6 @@
 pydantic-ai==0.2.15
 pydantic==2.13.4
-pandas==2.2.3
+pandas==3.0.3
 devtools==0.12.2
 python-dotenv==1.2.2
 fastapi==0.136.3
