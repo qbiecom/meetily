@@ -666,13 +666,28 @@ jobs:
           path: frontend/src-tauri/binaries/ffmpeg-*.exe
           key: ${{ runner.os }}-ffmpeg-${{ hashFiles('frontend/src-tauri/build.rs', 'frontend/src-tauri/build/ffmpeg.rs') }}
 
+      - name: Normalize Tauri updater signing key
+        shell: pwsh
+        run: |
+          $tauriSigningKey = @"
+          ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          "@
+
+          # Preserve the minisign key as a true multiline value for Windows runners.
+          # Also handle secrets that may have been stored with escaped newlines.
+          $tauriSigningKey = $tauriSigningKey.Trim("`r", "`n") -replace '\\n', "`n"
+
+          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY<<EOF"
+          Add-Content -Path $env:GITHUB_ENV -Value $tauriSigningKey
+          Add-Content -Path $env:GITHUB_ENV -Value "EOF"
+          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}"
+
+          Write-Host "Prepared Tauri updater signing key for subsequent steps"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Tauri updater signing (ALWAYS enabled for .sig files)
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # License validation RSA public key (embedded at build time)
           MEETILY_RSA_PUBLIC_KEY: ${{ secrets.MEETILY_RSA_PUBLIC_KEY }}
           # Supabase configuration (for online license verification)
