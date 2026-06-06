@@ -669,13 +669,13 @@ jobs:
       - name: Normalize Tauri updater signing key
         shell: pwsh
         run: |
-          $tauriSigningKey = @"
+          $tauriSigningKey = @'
           ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          "@
+          '@
 
           # Preserve the minisign key as a true multiline value for Windows runners.
           # Also handle secrets that may have been stored with escaped newlines.
-          $tauriSigningKey = $tauriSigningKey.Trim("`r", "`n") -replace '\\n', "`n"
+          $tauriSigningKey = $tauriSigningKey.Trim() -replace '\\n', "`n"
 
           Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY<<EOF"
           Add-Content -Path $env:GITHUB_ENV -Value $tauriSigningKey
