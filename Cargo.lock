@@ -3655,7 +3655,7 @@ dependencies = [
  "serde_json",
  "silero",
  "sqlx",
- "strsim 0.10.0",
+ "strsim 0.11.1",
  "symphonia",
  "sysinfo",
  "tar",
