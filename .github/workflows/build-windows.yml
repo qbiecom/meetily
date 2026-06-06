@@ -666,22 +666,49 @@ jobs:
           path: frontend/src-tauri/binaries/ffmpeg-*.exe
           key: ${{ runner.os }}-ffmpeg-${{ hashFiles('frontend/src-tauri/build.rs', 'frontend/src-tauri/build/ffmpeg.rs') }}
 
-      - name: Normalize Tauri updater signing key
+      - name: Prepare Tauri updater signing key
+        id: tauri-updater-signing
         shell: pwsh
+        env:
+          RAW_TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          $tauriSigningKey = @'
-          ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          '@
+          $tauriSigningKey = $env:RAW_TAURI_SIGNING_PRIVATE_KEY
+          $tauriSigningKeyPassword = $env:RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+
+          if ([string]::IsNullOrWhiteSpace($tauriSigningKey)) {
+            Write-Warning "TAURI_SIGNING_PRIVATE_KEY is not set; disabling updater artifact signing for this build."
+
+            $tauriConfigPath = "frontend/src-tauri/tauri.conf.json"
+            $ciConfigPath = "frontend/src-tauri/tauri.windows-ci-no-updater.json"
+            $tauriConfig = Get-Content $tauriConfigPath -Raw | ConvertFrom-Json
+            $tauriConfig.bundle.createUpdaterArtifacts = $false
+            $tauriConfig | ConvertTo-Json -Depth 100 | Set-Content -Path $ciConfigPath -Encoding utf8
+
+            "config_arg=--config src-tauri/tauri.windows-ci-no-updater.json" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "Created $ciConfigPath with bundle.createUpdaterArtifacts=false"
+            exit 0
+          }
 
           # Preserve the minisign key as a true multiline value for Windows runners.
           # Also handle secrets that may have been stored with escaped newlines.
           $tauriSigningKey = $tauriSigningKey.Trim() -replace '\\n', "`n"
+          $tauriSigningKey = $tauriSigningKey -replace "`r`n", "`n"
+
+          if (-not $tauriSigningKey.StartsWith("untrusted comment:")) {
+            Write-Error "TAURI_SIGNING_PRIVATE_KEY is malformed: expected minisign key beginning with 'untrusted comment:'."
+            exit 1
+          }
 
           Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY<<EOF"
           Add-Content -Path $env:GITHUB_ENV -Value $tauriSigningKey
           Add-Content -Path $env:GITHUB_ENV -Value "EOF"
-          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}"
 
+          if (-not [string]::IsNullOrWhiteSpace($tauriSigningKeyPassword)) {
+            Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$tauriSigningKeyPassword"
+          }
+
+          "config_arg=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           Write-Host "Prepared Tauri updater signing key for subsequent steps"
 
       - name: Build Tauri app
@@ -695,7 +722,7 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         with:
           projectPath: frontend
-          args: --target x86_64-pc-windows-msvc --features vulkan ${{ steps.build-profile.outputs.args }}
+          args: --target x86_64-pc-windows-msvc --features vulkan ${{ steps.tauri-updater-signing.outputs.config_arg }} ${{ steps.build-profile.outputs.args }}
 
       - name: Verify build artifacts
         shell: bash
