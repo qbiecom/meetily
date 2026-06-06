@@ -666,22 +666,63 @@ jobs:
           path: frontend/src-tauri/binaries/ffmpeg-*.exe
           key: ${{ runner.os }}-ffmpeg-${{ hashFiles('frontend/src-tauri/build.rs', 'frontend/src-tauri/build/ffmpeg.rs') }}
 
-      - name: Normalize Tauri updater signing key
+      - name: Prepare Tauri updater signing key
+        id: tauri-updater-signing
         shell: pwsh
+        env:
+          RAW_TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          $tauriSigningKey = @'
-          ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          '@
+          $tauriSigningKey = $env:RAW_TAURI_SIGNING_PRIVATE_KEY
+          $tauriSigningKeyPassword = $env:RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+
+          if ([string]::IsNullOrWhiteSpace($tauriSigningKey)) {
+            Write-Warning "TAURI_SIGNING_PRIVATE_KEY is not set; disabling updater artifact signing for this build. This is expected for unsigned/fork builds. For signed builds, configure TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD secrets."
+
+            try {
+              $tauriConfigPath = "frontend/src-tauri/tauri.conf.json"
+              $ciConfigFileName = "tauri.windows-ci-no-updater-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT.json"
+              $ciConfigPath = "frontend/src-tauri/$ciConfigFileName"
+              $tauriConfig = Get-Content $tauriConfigPath -Raw | ConvertFrom-Json
+              if (-not $tauriConfig.bundle) {
+                $tauriConfig | Add-Member -NotePropertyName bundle -NotePropertyValue ([pscustomobject]@{})
+              }
+              $tauriConfig.bundle.createUpdaterArtifacts = $false
+              $tauriConfig | ConvertTo-Json -Depth 99 | Set-Content -Path $ciConfigPath -Encoding utf8
+            } catch {
+              Write-Error "Failed to create temporary Tauri config for unsigned build: $($_.Exception.Message)"
+              exit 1
+            }
+
+            # projectPath is "frontend", so config path must be relative to frontend/.
+            "config_arg=--config src-tauri/$ciConfigFileName" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "Created $ciConfigPath with bundle.createUpdaterArtifacts=false"
+            exit 0
+          }
 
           # Preserve the minisign key as a true multiline value for Windows runners.
           # Also handle secrets that may have been stored with escaped newlines.
-          $tauriSigningKey = $tauriSigningKey.Trim() -replace '\\n', "`n"
+          # 1) Convert escaped CRLF/LF sequences from single-line secrets
+          # 2) Normalize any real CRLF to LF so minisign parsing is consistent
+          $tauriSigningKey = $tauriSigningKey.Trim() -replace '\\r\\n', "`r`n"
+          $tauriSigningKey = $tauriSigningKey -replace '\\n', "`n"
+          $tauriSigningKey = $tauriSigningKey -replace "`r`n", "`n"
+
+          $expectedPrefix = "untrusted comment:"
+          if (-not $tauriSigningKey.StartsWith($expectedPrefix)) {
+            Write-Error "TAURI_SIGNING_PRIVATE_KEY is malformed: expected minisign key beginning with '$expectedPrefix'. Generate or export a valid key before running signed builds."
+            exit 1
+          }
 
           Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY<<EOF"
           Add-Content -Path $env:GITHUB_ENV -Value $tauriSigningKey
           Add-Content -Path $env:GITHUB_ENV -Value "EOF"
-          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}"
 
+          if (-not [string]::IsNullOrWhiteSpace($tauriSigningKeyPassword)) {
+            Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$tauriSigningKeyPassword"
+          }
+
+          "config_arg=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           Write-Host "Prepared Tauri updater signing key for subsequent steps"
 
       - name: Build Tauri app
@@ -695,7 +736,7 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         with:
           projectPath: frontend
-          args: --target x86_64-pc-windows-msvc --features vulkan ${{ steps.build-profile.outputs.args }}
+          args: --target x86_64-pc-windows-msvc --features vulkan ${{ steps.tauri-updater-signing.outputs.config_arg }} ${{ steps.build-profile.outputs.args }}
 
       - name: Verify build artifacts
         shell: bash
