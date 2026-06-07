@@ -106,6 +106,11 @@ jobs:
           cuda: '13.2.0'
           log-file-suffix: '${{ matrix.platform }}-${{ matrix.target }}.txt'
 
+      - name: Set CUDA architectures
+        if: contains(matrix.platform, 'windows') || contains(matrix.platform, 'ubuntu')
+        shell: bash
+        run: echo "CMAKE_CUDA_ARCHITECTURES=60;61;70;75;80;86;89;90" >> $GITHUB_ENV
+
       # Platform-specific dependencies
       - name: Install dependencies (Ubuntu 24.04)
         if: matrix.platform == 'ubuntu-24.04'

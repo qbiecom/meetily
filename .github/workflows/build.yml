@@ -120,6 +120,11 @@ jobs:
           cuda: '13.2.0'
           log-file-suffix: '${{ inputs.platform }}-${{ inputs.target }}.txt'
 
+      - name: Set CUDA architectures
+        if: contains(inputs.platform, 'windows') || contains(inputs.platform, 'ubuntu')
+        shell: bash
+        run: echo "CMAKE_CUDA_ARCHITECTURES=60;61;70;75;80;86;89;90" >> $GITHUB_ENV
+
       - name: install dependencies (ubuntu 24.04)
         if: contains(inputs.platform, 'ubuntu-24.04')
         run: |
