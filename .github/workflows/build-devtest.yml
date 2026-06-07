@@ -350,8 +350,12 @@ jobs:
           elif [[ "${{ matrix.platform }}" == *"windows"* ]]; then
             LLAMA_FEATURES="--features vulkan"
             echo "Using Vulkan GPU acceleration for Windows"
-            echo "Serializing Windows Vulkan build to avoid the llama-cpp-sys-2 CMake race condition"
-            CARGO_JOBS="-j 1"
+            echo "Serializing Windows Vulkan CMake/MSBuild path for llama-cpp-sys-2"
+            CARGO_JOBS=""
+            export CARGO_BUILD_JOBS=1
+            export CMAKE_BUILD_PARALLEL_LEVEL=1
+            export CMAKE_VS_GLOBALS='UseMultiToolTask=false;EnforceProcessCountAcrossBuilds=true;CL_MPCount=1'
+            find target/release/build -maxdepth 1 -type d -name 'llama-cpp-sys-2-*' -exec rm -rf {} + 2>/dev/null || true
           else
             echo "Using CPU-only mode for Linux"
           fi
