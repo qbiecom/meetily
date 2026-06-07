@@ -343,18 +343,21 @@ jobs:
 
           # Determine llama-helper features based on platform
           LLAMA_FEATURES=""
+          CARGO_JOBS=""
           if [[ "${{ matrix.platform }}" == *"macos"* ]]; then
             LLAMA_FEATURES="--features metal"
             echo "Using Metal GPU acceleration for macOS"
           elif [[ "${{ matrix.platform }}" == *"windows"* ]]; then
             LLAMA_FEATURES="--features vulkan"
             echo "Using Vulkan GPU acceleration for Windows"
+            echo "Serializing Windows Vulkan build to avoid the llama-cpp-sys-2 CMake race condition"
+            CARGO_JOBS="-j 1"
           else
             echo "Using CPU-only mode for Linux"
           fi
 
           # Build llama-helper from workspace root
-          cargo build --release -p llama-helper $LLAMA_FEATURES
+          cargo build --release -p llama-helper $LLAMA_FEATURES $CARGO_JOBS
 
           # Determine binary extension
           EXT=""
