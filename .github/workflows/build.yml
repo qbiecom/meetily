@@ -509,10 +509,12 @@ jobs:
         if: contains(inputs.platform, 'windows')
         shell: pwsh
         run: |
-          # Build llama-helper with Vulkan GPU acceleration on Windows
+          # Build llama-helper with Vulkan GPU acceleration on Windows.
+          # Note: llama-cpp-sys-2 has a CMake race condition in the Vulkan build,
+          # so keep this sidecar build single-threaded.
           Write-Host "Building llama-helper sidecar (Vulkan GPU)..."
 
-          cargo build --release -p llama-helper --features vulkan
+          cargo build -j 1 --release -p llama-helper --features vulkan
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to build llama-helper"
