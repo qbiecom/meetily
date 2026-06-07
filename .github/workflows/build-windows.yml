@@ -641,11 +641,19 @@ jobs:
         shell: pwsh
         run: |
           # Build llama-helper with Vulkan GPU acceleration.
-          # Note: llama-cpp-sys-2 has a CMake race condition in the Vulkan build,
-          # so keep this sidecar build single-threaded.
+          # llama-cpp-sys-2 can race during Windows Vulkan CMake/MSBuild generation,
+          # so force the CMake/MSBuild path to serialize and clear stale cached artifacts.
           Write-Host "Building llama-helper sidecar (Vulkan GPU)..."
 
-          cargo build -j 1 --release -p llama-helper --features vulkan
+          if (Test-Path "target/release/build") {
+            Get-ChildItem "target/release/build" -Directory -Filter "llama-cpp-sys-2-*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          $env:CARGO_BUILD_JOBS = "1"
+          $env:CMAKE_BUILD_PARALLEL_LEVEL = "1"
+          $env:CMAKE_VS_GLOBALS = "UseMultiToolTask=false;EnforceProcessCountAcrossBuilds=true;CL_MPCount=1"
+
+          cargo build --release -p llama-helper --features vulkan
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to build llama-helper"
