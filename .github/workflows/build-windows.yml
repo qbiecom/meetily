@@ -504,7 +504,7 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
-          key: windows-x64-cpu-v1
+          key: windows-x64-cuda-v1
 
 
       - name: Install frontend dependencies
@@ -515,11 +515,9 @@ jobs:
       - name: Build llama-helper sidecar
         shell: pwsh
         run: |
-          # Build llama-helper sidecar (CPU-only on Windows).
-          # Vulkan is disabled due to a llama-cpp-sys-2 race condition during Windows CI builds.
-          Write-Host "Building llama-helper sidecar (CPU-only)..."
+          Write-Host "Building llama-helper sidecar (CUDA)..."
 
-          cargo build --release -p llama-helper
+          cargo build --release -p llama-helper --features cuda
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to build llama-helper"

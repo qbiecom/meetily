@@ -111,7 +111,7 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
-          key: ${{ inputs.platform }}-${{ inputs.target }}-cpu-v1
+          key: ${{ inputs.platform }}-${{ inputs.target }}-cuda-v1
 
       - name: install dependencies (ubuntu 24.04)
         if: contains(inputs.platform, 'ubuntu-24.04')
@@ -304,23 +304,11 @@ jobs:
           # Note: Healthcheck may show cert path/password warning but if keypair ls works,
           # the signing should still work. We'll test in the pre-build signing test.
 
-      - name: Prepare Vulkan SDK for Ubuntu 24.04
-        if: contains(inputs.platform, 'ubuntu-24.04')
+      - name: Install CUDA toolkit (Ubuntu)
+        if: contains(inputs.platform, 'ubuntu')
         run: |
-          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc
-          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3.290-noble.list https://packages.lunarg.com/vulkan/1.3.290/lunarg-vulkan-1.3.290-noble.list
-          sudo apt update
-          sudo apt install vulkan-sdk -y
-          sudo apt-get install -y mesa-vulkan-drivers
-
-      - name: Prepare Vulkan SDK for Ubuntu 22.04
-        if: contains(inputs.platform, 'ubuntu-22.04')
-        run: |
-          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc
-          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3.290-jammy.list https://packages.lunarg.com/vulkan/1.3.290/lunarg-vulkan-1.3.290-jammy.list
-          sudo apt update
-          sudo apt install vulkan-sdk -y
-          sudo apt-get install -y mesa-vulkan-drivers
+          sudo apt-get update
+          sudo apt-get install -y nvidia-cuda-toolkit
 
       - name: Install frontend dependencies
         run: |
@@ -380,15 +368,15 @@ jobs:
         run: |
           FEATURES=""
 
-          # Windows: CPU-only (Vulkan disabled - llama-cpp-sys-2 race condition on Windows CI)
+          # Windows: Use CUDA for GPU acceleration
           if [[ "${{ inputs.platform }}" == *"windows"* ]]; then
-            echo "Windows build with CPU-only (no Vulkan)"
+            echo "Windows build with CUDA GPU acceleration"
           fi
 
           # Linux: Use OpenBLAS for optimized CPU performance
           if [[ "${{ inputs.platform }}" == *"ubuntu"* ]]; then
             FEATURES="--features openblas"
-            echo "Linux build with OpenBLAS CPU optimization"
+            echo "Linux build with OpenBLAS and CUDA GPU acceleration"
           fi
 
           # macOS: Uses Metal by default, no additional features needed
@@ -402,11 +390,9 @@ jobs:
         if: contains(inputs.platform, 'windows')
         shell: pwsh
         run: |
-          # Build llama-helper sidecar (CPU-only on Windows).
-          # Vulkan is disabled due to a llama-cpp-sys-2 race condition during Windows CI builds.
-          Write-Host "Building llama-helper sidecar (CPU-only)..."
+          Write-Host "Building llama-helper sidecar (CUDA)..."
 
-          cargo build --release -p llama-helper
+          cargo build --release -p llama-helper --features cuda
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to build llama-helper"
@@ -432,7 +418,8 @@ jobs:
             LLAMA_FEATURES="--features metal"
             echo "Using Metal GPU acceleration for macOS"
           else
-            echo "Using CPU-only mode for Linux"
+            LLAMA_FEATURES="--features cuda"
+            echo "Using CUDA GPU acceleration for Linux"
           fi
 
           # Build llama-helper from workspace root
