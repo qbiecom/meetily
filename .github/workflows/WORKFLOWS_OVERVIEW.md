@@ -62,7 +62,7 @@ This document provides a quick overview of all available CI/CD workflows in this
 
 **Use When:**
 - Windows-specific development
-- Testing CUDA/Vulkan GPU acceleration
+- Testing CUDA GPU acceleration
 - Verifying Windows-specific features
 
 **Outputs:**
@@ -86,7 +86,7 @@ This document provides a quick overview of all available CI/CD workflows in this
 
 **Use When:**
 - Linux-specific development
-- Testing Vulkan GPU acceleration
+- Testing OpenBLAS-accelerated CPU builds
 - Verifying package formats
 
 **Outputs:**

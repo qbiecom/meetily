@@ -119,14 +119,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev libopenblas-dev libx11-dev libxtst-dev libxrandr-dev fuse libfuse2
 
-      - name: Prepare CUDA toolkit (Ubuntu 24.04)
-        if: matrix.platform == 'ubuntu-24.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y nvidia-cuda-toolkit
-
-      - name: Prepare CUDA toolkit (Ubuntu 22.04)
-        if: matrix.platform == 'ubuntu-22.04'
+      - name: Prepare CUDA toolkit (Ubuntu)
+        if: contains(matrix.platform, 'ubuntu')
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
           sudo apt-get install -y nvidia-cuda-toolkit
