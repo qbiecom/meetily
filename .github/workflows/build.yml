@@ -390,7 +390,7 @@ jobs:
           # Windows: Use CUDA if detected (see windows-features step), otherwise CPU-only
           if [[ "${{ inputs.platform }}" == *"windows"* ]]; then
             FEATURES="${{ steps.windows-features.outputs.tauri_features }}"
-            echo "Windows build with ${{ steps.windows-features.outputs.feature_label }} GPU acceleration"
+            echo "Windows build: ${{ steps.windows-features.outputs.feature_label }}"
           fi
 
           # Linux: Use CUDA for GPU acceleration (whisper-rs)
