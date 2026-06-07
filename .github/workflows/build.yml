@@ -115,7 +115,7 @@ jobs:
 
       - name: Install CUDA toolkit (Windows)
         if: contains(inputs.platform, 'windows')
-        uses: Jimver/cuda-toolkit@v0.2.35
+        uses: Jimver/cuda-toolkit@v0.2.34
         with:
           cuda: '13.2.0'
           log-file-suffix: '${{ inputs.platform }}-${{ inputs.target }}.txt'
