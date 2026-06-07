@@ -512,6 +512,32 @@ jobs:
           cd frontend
           pnpm install
 
+      - name: Configure CUDA toolkit
+        shell: pwsh
+        run: |
+          $cudaRoot = $env:CUDA_PATH
+          if ([string]::IsNullOrWhiteSpace($cudaRoot) -or -not (Test-Path $cudaRoot)) {
+            $latestCuda = Get-ChildItem "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA" -Directory -ErrorAction SilentlyContinue |
+              Sort-Object Name -Descending |
+              Select-Object -First 1
+            if ($latestCuda) {
+              $cudaRoot = $latestCuda.FullName
+            }
+          }
+
+          $nvccPath = if ([string]::IsNullOrWhiteSpace($cudaRoot)) { $null } else { Join-Path $cudaRoot "bin\nvcc.exe" }
+          if ([string]::IsNullOrWhiteSpace($nvccPath) -or -not (Test-Path $nvccPath)) {
+            Write-Error "CUDA Toolkit was not found on the runner (nvcc.exe missing)."
+            exit 1
+          }
+
+          "CUDA_PATH=$cudaRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CUDAToolkit_ROOT=$cudaRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "$cudaRoot\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "$cudaRoot\libnvvp" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+          & $nvccPath --version
+
       - name: Build llama-helper sidecar
         shell: pwsh
         run: |
