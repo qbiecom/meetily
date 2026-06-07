@@ -512,12 +512,28 @@ jobs:
           cd frontend
           pnpm install
 
+      - name: Determine Windows build features
+        id: windows-features
+        shell: pwsh
+        run: |
+          if (Get-Command nvcc -ErrorAction SilentlyContinue) {
+            "llama_features=--features cuda" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            "tauri_features=--features cuda" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            "feature_label=CUDA" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "CUDA toolkit detected; enabling CUDA features."
+          } else {
+            "llama_features=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            "tauri_features=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            "feature_label=CPU-only" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Warning "CUDA toolkit not found (nvcc missing); building CPU-only binaries."
+          }
+
       - name: Build llama-helper sidecar
         shell: pwsh
         run: |
-          Write-Host "Building llama-helper sidecar (CUDA)..."
+          Write-Host "Building llama-helper sidecar (${{ steps.windows-features.outputs.feature_label }})..."
 
-          cargo build --release -p llama-helper --features cuda
+          cargo build --release -p llama-helper ${{ steps.windows-features.outputs.llama_features }}
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to build llama-helper"
@@ -639,7 +655,7 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         with:
           projectPath: frontend
-          args: --target x86_64-pc-windows-msvc --features cuda ${{ steps.tauri-windows-config.outputs.config_arg }} ${{ steps.build-profile.outputs.args }}
+          args: --target x86_64-pc-windows-msvc ${{ steps.windows-features.outputs.tauri_features }} ${{ steps.tauri-windows-config.outputs.config_arg }} ${{ steps.build-profile.outputs.args }}
 
       - name: Verify build artifacts
         shell: bash
