@@ -510,7 +510,7 @@ jobs:
         uses: humbletim/install-vulkan-sdk@v1.2
         with:
           version: 1.4.309.0
-          cache: true
+          cache: false
 
       - name: Verify and Configure Vulkan SDK
         shell: pwsh
