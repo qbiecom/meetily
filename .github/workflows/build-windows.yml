@@ -506,6 +506,12 @@ jobs:
           workspaces: ". -> target"
           key: windows-x64-cuda-v1
 
+      - name: Install CUDA toolkit
+        uses: Jimver/cuda-toolkit@v0.2.35
+        with:
+          cuda: '13.2.0'
+          log-file-suffix: windows-x64.txt
+
 
       - name: Install frontend dependencies
         run: |

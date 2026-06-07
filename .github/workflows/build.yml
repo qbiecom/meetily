@@ -113,6 +113,13 @@ jobs:
           workspaces: ". -> target"
           key: ${{ inputs.platform }}-${{ inputs.target }}-cuda-v1
 
+      - name: Install CUDA toolkit (Windows)
+        if: contains(inputs.platform, 'windows')
+        uses: Jimver/cuda-toolkit@v0.2.35
+        with:
+          cuda: '13.2.0'
+          log-file-suffix: '${{ inputs.platform }}-${{ inputs.target }}.txt'
+
       - name: install dependencies (ubuntu 24.04)
         if: contains(inputs.platform, 'ubuntu-24.04')
         run: |
