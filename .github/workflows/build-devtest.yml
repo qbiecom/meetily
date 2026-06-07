@@ -137,13 +137,6 @@ jobs:
           sudo apt install vulkan-sdk -y
           sudo apt-get install -y mesa-vulkan-drivers
 
-      - name: Install Vulkan SDK (Windows)
-        if: contains(matrix.platform, 'windows')
-        uses: humbletim/install-vulkan-sdk@v1.2
-        with:
-          version: 1.4.309.0
-          cache: false
-
       - name: Install frontend dependencies
         run: |
           cd frontend
@@ -317,10 +310,9 @@ jobs:
         run: |
           FEATURES=""
 
-          # Windows: Use Vulkan for GPU acceleration
+          # Windows: CPU-only (Vulkan disabled - llama-cpp-sys-2 race condition on Windows CI)
           if [[ "${{ matrix.platform }}" == *"windows"* ]]; then
-            FEATURES="--features vulkan"
-            echo "Windows build with Vulkan GPU acceleration"
+            echo "Windows build with CPU-only (no Vulkan)"
           fi
 
           # Linux: Use OpenBLAS for optimized CPU performance
@@ -348,14 +340,7 @@ jobs:
             LLAMA_FEATURES="--features metal"
             echo "Using Metal GPU acceleration for macOS"
           elif [[ "${{ matrix.platform }}" == *"windows"* ]]; then
-            LLAMA_FEATURES="--features vulkan"
-            echo "Using Vulkan GPU acceleration for Windows"
-            echo "Serializing Windows Vulkan CMake/MSBuild path for llama-cpp-sys-2"
-            CARGO_JOBS=""
-            export CARGO_BUILD_JOBS=1
-            export CMAKE_BUILD_PARALLEL_LEVEL=1
-            export CMAKE_VS_GLOBALS='UseMultiToolTask=false;EnforceProcessCountAcrossBuilds=true;CL_MPCount=1'
-            find target/release/build -maxdepth 1 -type d -name 'llama-cpp-sys-2-*' -exec rm -rf {} + 2>/dev/null || true
+            echo "Using CPU-only mode for Windows (Vulkan disabled due to llama-cpp-sys-2 race condition)"
           else
             echo "Using CPU-only mode for Linux"
           fi
