@@ -304,15 +304,16 @@ jobs:
         run: |
           FEATURES=""
 
-          # Windows: Use CUDA for GPU acceleration
+          # Windows: Use CUDA for GPU acceleration (whisper-rs)
           if [[ "${{ matrix.platform }}" == *"windows"* ]]; then
+            FEATURES="--features cuda"
             echo "Windows build with CUDA GPU acceleration"
           fi
 
-          # Linux: Use OpenBLAS for optimized CPU performance
+          # Linux: Use CUDA for GPU acceleration (whisper-rs)
           if [[ "${{ matrix.platform }}" == *"ubuntu"* ]]; then
-            FEATURES="--features openblas"
-            echo "Linux build with OpenBLAS and CUDA GPU acceleration"
+            FEATURES="--features cuda"
+            echo "Linux build with CUDA GPU acceleration"
           fi
 
           # macOS: Uses Metal by default, no additional features needed
@@ -337,6 +338,7 @@ jobs:
             LLAMA_FEATURES="--features cuda"
             echo "Using CUDA GPU acceleration for Windows"
           else
+            # Linux
             LLAMA_FEATURES="--features cuda"
             echo "Using CUDA GPU acceleration for Linux"
           fi
