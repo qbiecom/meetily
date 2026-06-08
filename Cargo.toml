@@ -18,6 +18,8 @@ serde_json = "1.0"
 tokio = { version = "1.32.0", features = ["full"] }
 
 [profile.release]
-codegen-units = 1
-lto = true
-opt-level = "s"
+# Keep release builds parallel-friendly in CI. Single-unit codegen plus full LTO
+# serializes much of LLVM work and significantly slows Windows CUDA builds.
+codegen-units = 16
+lto = false
+opt-level = 3
