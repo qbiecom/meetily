@@ -299,7 +299,7 @@ The application will be built with Metal GPU acceleration automatically.
 
 ### 1. Install Dependencies
 
-- **Node.js:** Download and install from [nodejs.org](https://nodejs.org/).
+- **Node.js 24:** Download and install from [nodejs.org](https://nodejs.org/).
 - **Rust:** Install from [rust-lang.org](https://www.rust-lang.org/tools/install).
 - **Visual Studio Build Tools:** Install the "Desktop development with C++" workload from the Visual Studio Installer.
 - **CMake:** Download and install from [cmake.org](https://cmake.org/download/).

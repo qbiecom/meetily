@@ -33,6 +33,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   RUST_BACKTRACE: 1
   CARGO_TERM_COLOR: always
 
@@ -476,6 +477,7 @@ jobs:
         with:
           version: 8
           run_install: false
+          standalone: true
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -507,7 +509,7 @@ jobs:
           key: windows-x64-cuda-v1
 
       - name: Install CUDA toolkit
-        uses: Jimver/cuda-toolkit@v0.2.34
+        uses: Jimver/cuda-toolkit@v0.2.35
         with:
           cuda: '13.2.0'
           log-file-suffix: windows-x64.txt

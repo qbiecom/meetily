@@ -14,13 +14,13 @@ A modern desktop application for recording, transcribing, and analyzing meetings
 ## Prerequisites
 
 ### For macOS:
-- Node.js (v18 or later)
+- Node.js 24
 - Rust (latest stable)
 - pnpm (v8 or later)
 - [Xcode Command Line Tools](https://developer.apple.com/download/all/?q=xcode)
 
 ### For Windows:
-- Node.js (v18 or later)
+- Node.js 24
 - Rust (latest stable)
 - pnpm (v8 or later)
 - Visual Studio Build Tools with C++ development tools
@@ -74,7 +74,7 @@ A modern desktop application for recording, transcribing, and analyzing meetings
 ### For Windows:
 
 1. Install prerequisites:
-   - Install [Node.js](https://nodejs.org/) (v18 or later)
+   - Install [Node.js](https://nodejs.org/) 24
    - Install [Rust](https://www.rust-lang.org/tools/install)
    - Install pnpm: `npm install -g pnpm`
    - Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with C++ development tools
