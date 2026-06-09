@@ -122,6 +122,8 @@ jobs:
         uses: Jimver/cuda-toolkit@v0.2.35
         with:
           cuda: '13.2.0'
+          method: network
+          sub-packages: '["nvcc", "cudart", "cublas", "visual_studio_integration"]'
           log-file-suffix: '${{ inputs.platform }}-${{ inputs.target }}.txt'
 
       - name: install dependencies (ubuntu 24.04)
