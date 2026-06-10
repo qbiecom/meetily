@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { RecordingStatusBar } from "./RecordingStatusBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { TranscriptSegmentData } from "@/types";
+import { SpeakerChip } from "./SpeakerChip";
 
 export interface VirtualizedTranscriptViewProps {
     /** Transcript segments to display */
@@ -34,6 +35,9 @@ export interface VirtualizedTranscriptViewProps {
     totalCount?: number;
     loadedCount?: number;
     onLoadMore?: () => void;
+
+    /** Called when a speaker chip is clicked (e.g. to rename the speaker) */
+    onSpeakerClick?: (label: string) => void;
 }
 
 // Threshold for enabling virtualization (below this, use simple rendering)
@@ -71,6 +75,9 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence,
     isStreaming,
     showConfidence,
+    speaker,
+    showSpeaker,
+    onSpeakerClick,
 }: {
     id: string;
     timestamp: number;
@@ -78,11 +85,22 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence?: number;
     isStreaming: boolean;
     showConfidence: boolean;
+    speaker?: string;
+    showSpeaker?: boolean;
+    onSpeakerClick?: (label: string) => void;
 }) {
     const displayText = cleanStopWords(text) || (text.trim() === '' ? '[Silence]' : text);
 
     return (
         <div id={`segment-${id}`} className="mb-3">
+            {speaker && showSpeaker && (
+                <div className="ml-[58px] mb-1">
+                    <SpeakerChip
+                        label={speaker}
+                        onClick={onSpeakerClick ? () => onSpeakerClick(speaker) : undefined}
+                    />
+                </div>
+            )}
             <div className="flex items-start gap-2">
                 <Tooltip>
                     <TooltipTrigger>
@@ -124,6 +142,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
     totalCount = 0,
     loadedCount = 0,
     onLoadMore,
+    onSpeakerClick,
 }) => {
     // Create scroll ref first - shared between virtualizer and auto-scroll hook
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -296,6 +315,12 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        speaker={segment.speaker}
+                                        showSpeaker={
+                                            virtualRow.index === 0 ||
+                                            segments[virtualRow.index - 1]?.speaker !== segment.speaker
+                                        }
+                                        onSpeakerClick={onSpeakerClick}
                                     />
                                 </div>
                             );
@@ -335,7 +360,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                 // Simple rendering for small lists (better animations)
                 <>
                     <div className="space-y-1">
-                        {segments.map((segment) => {
+                        {segments.map((segment, index) => {
                             const isStreaming = streamingSegmentId === segment.id;
 
                             return (
@@ -352,6 +377,11 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        speaker={segment.speaker}
+                                        showSpeaker={
+                                            index === 0 || segments[index - 1]?.speaker !== segment.speaker
+                                        }
+                                        onSpeakerClick={onSpeakerClick}
                                     />
                                 </motion.div>
                             );

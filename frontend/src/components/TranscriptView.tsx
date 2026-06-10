@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ConfidenceIndicator } from './ConfidenceIndicator';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { RecordingStatusBar } from './RecordingStatusBar';
+import { SpeakerChip } from './SpeakerChip';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface TranscriptViewProps {
@@ -273,6 +274,11 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({ transcripts, isR
         const sizerText = cleanStopWords(isStreaming ? streamingTranscript.fullText : transcript.text)
           || (originalWasEmpty && !isStreaming ? '[Silence]' : '');
 
+        // Show the speaker chip only when the speaker changes between segments
+        const showSpeaker =
+          !!transcript.speaker &&
+          (index === 0 || transcripts[index - 1]?.speaker !== transcript.speaker);
+
         return (
           <motion.div
             key={transcript.id ? `${transcript.id}-${index}` : `transcript-${index}`}
@@ -281,6 +287,11 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({ transcripts, isR
             transition={{ duration: 0.15 }}
             className="mb-3"
           >
+            {showSpeaker && (
+              <div className="ml-[58px] mb-1">
+                <SpeakerChip label={transcript.speaker!} />
+              </div>
+            )}
             <div className="flex items-start gap-2">
               <Tooltip>
                 <TooltipTrigger>
