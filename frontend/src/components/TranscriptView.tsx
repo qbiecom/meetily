@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import { ConfidenceIndicator } from './ConfidenceIndicator';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { RecordingStatusBar } from './RecordingStatusBar';
-import { SpeakerChip } from './SpeakerChip';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface TranscriptViewProps {
@@ -250,6 +249,8 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({ transcripts, isR
     };
   }, []);
 
+  const hasSpeakerColumn = transcripts.some((transcript) => Boolean(transcript.speaker));
+
   return (
     <div className="px-4 py-2">
       {/* Recording Status Bar - Sticky at top, always visible when recording */}
@@ -274,10 +275,11 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({ transcripts, isR
         const sizerText = cleanStopWords(isStreaming ? streamingTranscript.fullText : transcript.text)
           || (originalWasEmpty && !isStreaming ? '[Silence]' : '');
 
-        // Show the speaker chip only when the speaker changes between segments
+        // Show the speaker name only when the speaker changes between segments
         const showSpeaker =
           !!transcript.speaker &&
           (index === 0 || transcripts[index - 1]?.speaker !== transcript.speaker);
+        const inTurn = hasSpeakerColumn && !!transcript.speaker;
 
         return (
           <motion.div
@@ -285,11 +287,15 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({ transcripts, isR
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.15 }}
-            className="mb-3"
+            className={
+              inTurn
+                ? `border-l-2 border-gray-200 pl-3 py-0.5 ${showSpeaker ? 'mt-4 first:mt-0' : ''}`
+                : 'mb-3'
+            }
           >
-            {showSpeaker && (
-              <div className="ml-[58px] mb-1">
-                <SpeakerChip label={transcript.speaker!} />
+            {inTurn && showSpeaker && (
+              <div className="mb-0.5 text-xs font-semibold text-gray-600">
+                {transcript.speaker}
               </div>
             )}
             <div className="flex items-start gap-2">

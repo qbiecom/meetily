@@ -9,6 +9,8 @@ pub mod commands;
 pub mod embedding;
 pub mod fbank;
 pub mod models;
+pub mod overlap_detector;
 pub mod session;
+pub mod timeline;
 
 pub use session::DiarizationSession;

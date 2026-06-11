@@ -13,6 +13,11 @@ pub const CLUSTER_SIMILARITY_THRESHOLD: f32 = 0.55;
 /// Slightly stricter than intra-meeting clustering to avoid false renames.
 pub const PROFILE_MATCH_THRESHOLD: f32 = 0.60;
 
+/// Conservative live default: Meetily's current local diarization path is
+/// tuned for one-on-one and small two-person meetings. Outlier embeddings
+/// should not mint unlimited anonymous speakers during live transcription.
+pub const DEFAULT_MAX_ANONYMOUS_SPEAKERS: usize = 2;
+
 pub struct SpeakerCluster {
     pub centroid: Vec<f32>,
     pub count: usize,
@@ -27,6 +32,7 @@ pub struct SpeakerClusterer {
     clusters: Vec<SpeakerCluster>,
     last_label: Option<String>,
     anon_speaker_count: usize,
+    max_anonymous_speakers: usize,
 }
 
 pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
@@ -39,10 +45,15 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 
 impl SpeakerClusterer {
     pub fn new() -> Self {
+        Self::with_max_anonymous_speakers(DEFAULT_MAX_ANONYMOUS_SPEAKERS)
+    }
+
+    pub fn with_max_anonymous_speakers(max_anonymous_speakers: usize) -> Self {
         Self {
             clusters: Vec::new(),
             last_label: None,
             anon_speaker_count: 0,
+            max_anonymous_speakers: max_anonymous_speakers.max(1),
         }
     }
 
@@ -61,6 +72,10 @@ impl SpeakerClusterer {
     /// across segments too short for reliable embeddings).
     pub fn last_label(&self) -> Option<String> {
         self.last_label.clone()
+    }
+
+    pub fn anon_speaker_count(&self) -> usize {
+        self.anon_speaker_count
     }
 
     /// Assign an L2-normalized embedding to a cluster, returning its label.
@@ -83,37 +98,54 @@ impl SpeakerClusterer {
             })
             .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        let label = match best {
-            Some((idx, _)) => {
-                let cluster = &mut self.clusters[idx];
-                let n = cluster.count as f32;
-                for (c, e) in cluster.centroid.iter_mut().zip(embedding.iter()) {
-                    *c = (*c * n + e) / (n + 1.0);
-                }
-                let norm = cluster.centroid.iter().map(|v| v * v).sum::<f32>().sqrt();
-                if norm > 0.0 {
-                    for c in &mut cluster.centroid {
-                        *c /= norm;
-                    }
-                }
-                cluster.count += 1;
-                cluster.label.clone()
-            }
-            None => {
-                self.anon_speaker_count += 1;
-                let label = format!("Speaker {}", self.anon_speaker_count);
-                self.clusters.push(SpeakerCluster {
-                    centroid: embedding.to_vec(),
-                    count: 1,
-                    label: label.clone(),
-                    from_profile: false,
-                });
-                label
-            }
+        let label = if let Some((idx, _)) = best {
+            self.update_cluster(idx, embedding)
+        } else if self.anon_speaker_count >= self.max_anonymous_speakers {
+            self.nearest_active_cluster_label(embedding)
+                .unwrap_or_else(|| self.create_anonymous_cluster(embedding))
+        } else {
+            self.create_anonymous_cluster(embedding)
         };
 
         self.last_label = Some(label.clone());
         label
+    }
+
+    fn update_cluster(&mut self, idx: usize, embedding: &[f32]) -> String {
+        let cluster = &mut self.clusters[idx];
+        let n = cluster.count as f32;
+        for (c, e) in cluster.centroid.iter_mut().zip(embedding.iter()) {
+            *c = (*c * n + e) / (n + 1.0);
+        }
+        let norm = cluster.centroid.iter().map(|v| v * v).sum::<f32>().sqrt();
+        if norm > 0.0 {
+            for c in &mut cluster.centroid {
+                *c /= norm;
+            }
+        }
+        cluster.count += 1;
+        cluster.label.clone()
+    }
+
+    fn create_anonymous_cluster(&mut self, embedding: &[f32]) -> String {
+        self.anon_speaker_count += 1;
+        let label = format!("Speaker {}", self.anon_speaker_count);
+        self.clusters.push(SpeakerCluster {
+            centroid: embedding.to_vec(),
+            count: 1,
+            label: label.clone(),
+            from_profile: false,
+        });
+        label
+    }
+
+    fn nearest_active_cluster_label(&self, embedding: &[f32]) -> Option<String> {
+        self.clusters
+            .iter()
+            .filter(|cluster| !cluster.from_profile || cluster.count > 0)
+            .map(|cluster| (cluster, cosine_similarity(embedding, &cluster.centroid)))
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(cluster, _)| cluster.label.clone())
     }
 
     /// Snapshot of (label, centroid, segment count) for profile persistence.
@@ -164,5 +196,22 @@ mod tests {
         assert_eq!(c.assign(&a), "Speaker 1");
         assert_eq!(c.assign(&b), "Speaker 2");
         assert_eq!(c.last_label().as_deref(), Some("Speaker 2"));
+    }
+
+    #[test]
+    fn caps_anonymous_speakers_and_reuses_existing_label_for_outliers() {
+        let mut c = SpeakerClusterer::with_max_anonymous_speakers(2);
+        let a = unit(vec![1.0, 0.0, 0.0]);
+        let b = unit(vec![0.0, 1.0, 0.0]);
+        let outlier = unit(vec![0.0, 0.0, 1.0]);
+
+        assert_eq!(c.assign(&a), "Speaker 1");
+        assert_eq!(c.assign(&b), "Speaker 2");
+
+        let assigned = c.assign(&outlier);
+
+        assert!(matches!(assigned.as_str(), "Speaker 1" | "Speaker 2"));
+        assert_eq!(c.centroids().count(), 2);
+        assert_eq!(c.anon_speaker_count(), 2);
     }
 }

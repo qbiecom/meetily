@@ -9,7 +9,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { RecordingStatusBar } from "./RecordingStatusBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { TranscriptSegmentData } from "@/types";
-import { SpeakerChip } from "./SpeakerChip";
 
 export interface VirtualizedTranscriptViewProps {
     /** Transcript segments to display */
@@ -67,6 +66,44 @@ function cleanStopWords(text: string): string {
     return cleanedText.replace(/\s+/g, ' ').trim();
 }
 
+function formatOverlapMarkerTime(seconds: number | undefined): string {
+    if (seconds === undefined) return '--:--.-';
+
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds - minutes * 60;
+
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toFixed(1).padStart(4, '0')}`;
+}
+
+function shouldShowOverlapMarker(
+    segment: TranscriptSegmentData,
+    previousSegment?: TranscriptSegmentData
+): boolean {
+    return Boolean(
+        segment.overlap_region_id &&
+        segment.attribution_source === 'OverlapDetectedAmbiguous' &&
+        previousSegment?.overlap_region_id !== segment.overlap_region_id
+    );
+}
+
+const OverlapMarker = memo(function OverlapMarker({
+    segment,
+}: {
+    segment: TranscriptSegmentData;
+}) {
+    const speakers = segment.overlap_speaker_ids?.length
+        ? segment.overlap_speaker_ids.join(' + ')
+        : 'multiple speakers';
+    const start = formatOverlapMarkerTime(segment.overlap_start_time ?? segment.timestamp);
+    const end = formatOverlapMarkerTime(segment.overlap_end_time ?? segment.endTime);
+
+    return (
+        <div className="ml-[58px] mb-2 mt-1 border-l-2 border-amber-400 pl-3 text-xs text-amber-800">
+            {`[Overlap detected: ${speakers}, ${start}-${end}]`}
+        </div>
+    );
+});
+
 // Memoized transcript segment component
 const TranscriptSegment = memo(function TranscriptSegment({
     id,
@@ -77,6 +114,7 @@ const TranscriptSegment = memo(function TranscriptSegment({
     showConfidence,
     speaker,
     showSpeaker,
+    hasSpeakerColumn,
     onSpeakerClick,
 }: {
     id: string;
@@ -87,19 +125,32 @@ const TranscriptSegment = memo(function TranscriptSegment({
     showConfidence: boolean;
     speaker?: string;
     showSpeaker?: boolean;
+    hasSpeakerColumn?: boolean;
     onSpeakerClick?: (label: string) => void;
 }) {
     const displayText = cleanStopWords(text) || (text.trim() === '' ? '[Silence]' : text);
+    const inTurn = hasSpeakerColumn && !!speaker;
 
     return (
-        <div id={`segment-${id}`} className="mb-3">
-            {speaker && showSpeaker && (
-                <div className="ml-[58px] mb-1">
-                    <SpeakerChip
-                        label={speaker}
-                        onClick={onSpeakerClick ? () => onSpeakerClick(speaker) : undefined}
-                    />
-                </div>
+        <div
+            id={`segment-${id}`}
+            className={
+                inTurn
+                    ? `border-l-2 border-gray-200 pl-3 py-0.5 ${speaker && showSpeaker ? 'mt-4' : ''}`
+                    : 'mb-3'
+            }
+        >
+            {inTurn && showSpeaker && (
+                <button
+                    type="button"
+                    onClick={onSpeakerClick ? () => onSpeakerClick(speaker!) : undefined}
+                    title={onSpeakerClick ? 'Click to rename speaker' : undefined}
+                    className={`mb-0.5 text-xs font-semibold text-gray-600 ${
+                        onSpeakerClick ? 'cursor-pointer hover:text-gray-900 hover:underline' : 'cursor-default'
+                    }`}
+                >
+                    {speaker}
+                </button>
             )}
             <div className="flex items-start gap-2">
                 <Tooltip>
@@ -241,6 +292,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
 
     // Use simple rendering for small lists, virtualization for large lists
     const useVirtualization = segments.length >= VIRTUALIZATION_THRESHOLD;
+    const hasSpeakerColumn = segments.some((segment) => Boolean(segment.speaker));
 
     return (
         <div ref={scrollRef} className="flex flex-col h-full overflow-y-auto px-4 py-2">
@@ -258,7 +310,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
             {segments.length === 0 ? (
                 // Empty state
                 <motion.div
-                    initial={{ opacity: 0 }}
+                    initial={false}
                     animate={{ opacity: 1 }}
                     className="text-center text-gray-500 mt-8"
                 >
@@ -293,6 +345,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                     >
                         {virtualizer.getVirtualItems().map((virtualRow) => {
                             const segment = segments[virtualRow.index];
+                            const previousSegment = segments[virtualRow.index - 1];
                             const isStreaming = streamingSegmentId === segment.id;
 
                             return (
@@ -308,6 +361,9 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         transform: `translateY(${virtualRow.start}px)`,
                                     }}
                                 >
+                                    {shouldShowOverlapMarker(segment, previousSegment) && (
+                                        <OverlapMarker segment={segment} />
+                                    )}
                                     <TranscriptSegment
                                         id={segment.id}
                                         timestamp={segment.timestamp}
@@ -320,6 +376,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                             virtualRow.index === 0 ||
                                             segments[virtualRow.index - 1]?.speaker !== segment.speaker
                                         }
+                                        hasSpeakerColumn={hasSpeakerColumn}
                                         onSpeakerClick={onSpeakerClick}
                                     />
                                 </div>
@@ -362,6 +419,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                     <div className="space-y-1">
                         {segments.map((segment, index) => {
                             const isStreaming = streamingSegmentId === segment.id;
+                            const previousSegment = segments[index - 1];
 
                             return (
                                 <motion.div
@@ -370,6 +428,9 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.15 }}
                                 >
+                                    {shouldShowOverlapMarker(segment, previousSegment) && (
+                                        <OverlapMarker segment={segment} />
+                                    )}
                                     <TranscriptSegment
                                         id={segment.id}
                                         timestamp={segment.timestamp}
@@ -381,6 +442,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         showSpeaker={
                                             index === 0 || segments[index - 1]?.speaker !== segment.speaker
                                         }
+                                        hasSpeakerColumn={hasSpeakerColumn}
                                         onSpeakerClick={onSpeakerClick}
                                     />
                                 </motion.div>

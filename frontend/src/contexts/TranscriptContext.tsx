@@ -316,6 +316,13 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
             audio_end_time: update.audio_end_time,
             duration: update.duration,
             speaker: update.speaker,
+            attribution_source: update.attribution_source,
+            overlap_region_id: update.overlap_region_id,
+            overlap_speaker_ids: update.overlap_speaker_ids,
+            overlap_start_time: update.overlap_start_time,
+            overlap_end_time: update.overlap_end_time,
+            overlap_confidence: update.overlap_confidence,
+            overlap_status: update.overlap_status,
           };
 
           // Add to buffer
@@ -385,6 +392,13 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
             audio_end_time: segment.audio_end_time,
             duration: segment.duration,
             speaker: segment.speaker,
+            attribution_source: segment.attribution_source,
+            overlap_region_id: segment.overlap_region_id,
+            overlap_speaker_ids: segment.overlap_speaker_ids,
+            overlap_start_time: segment.overlap_start_time,
+            overlap_end_time: segment.overlap_end_time,
+            overlap_confidence: segment.overlap_confidence,
+            overlap_status: segment.overlap_status,
           }));
 
           setTranscripts(formattedTranscripts);
@@ -427,6 +441,13 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
       audio_end_time: update.audio_end_time,
       duration: update.duration,
       speaker: update.speaker,
+      attribution_source: update.attribution_source,
+      overlap_region_id: update.overlap_region_id,
+      overlap_speaker_ids: update.overlap_speaker_ids,
+      overlap_start_time: update.overlap_start_time,
+      overlap_end_time: update.overlap_end_time,
+      overlap_confidence: update.overlap_confidence,
+      overlap_status: update.overlap_status,
     };
 
     setTranscripts(prev => {
