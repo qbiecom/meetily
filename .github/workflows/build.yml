@@ -123,7 +123,7 @@ jobs:
         with:
           cuda: '13.2.0'
           method: network
-          sub-packages: '["crt", "nvcc", "cudart", "cublas", "cublas_dev", "visual_studio_integration"]'
+          sub-packages: '["crt", "nvcc", "nvvm", "cudart", "cublas", "cublas_dev", "visual_studio_integration"]'
           log-file-suffix: '${{ inputs.platform }}-${{ inputs.target }}.txt'
 
       - name: install dependencies (ubuntu 24.04)
