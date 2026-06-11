@@ -551,7 +551,17 @@ jobs:
       - name: Build llama-helper sidecar
         shell: pwsh
         run: |
-          Write-Host "Building llama-helper sidecar (CUDA)..."
+          # llama-cpp-sys-2 can race during Windows CUDA CMake/MSBuild generation,
+          # so force the CMake/MSBuild path to serialize and clear stale cached artifacts.
+          Write-Host "Building llama-helper sidecar (CUDA, serialized)..."
+
+          if (Test-Path "target/release/build") {
+            Get-ChildItem "target/release/build" -Directory -Filter "llama-cpp-sys-2-*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          $env:CARGO_BUILD_JOBS = "1"
+          $env:CMAKE_BUILD_PARALLEL_LEVEL = "1"
+          $env:CMAKE_VS_GLOBALS = "UseMultiToolTask=false;EnforceProcessCountAcrossBuilds=true;CL_MPCount=1"
 
           cargo build --release -p llama-helper --features cuda
 
