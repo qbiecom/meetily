@@ -295,11 +295,25 @@ pub fn start_transcription_task<R: Runtime>(
                             let chunk_duration = chunk.data.len() as f64 / chunk.sample_rate as f64;
                             let chunk_id_for_logging = chunk.chunk_id;
 
-                            // Keep segment samples for speaker embedding (STT consumes the chunk)
+                            // Keep segment samples for speaker embedding (STT consumes the chunk).
+                            // Diarization (fbank + WeSpeaker) requires 16kHz mono. Chunks arrive
+                            // at the device rate (e.g. 48kHz, see pipeline.rs), and transcription
+                            // resamples to 16kHz internally; we must do the same here. Feeding raw
+                            // 48kHz samples to label_segment_at would corrupt the fbank frontend
+                            // (wrong frequency mapping) and the rolling-window timestamps
+                            // (samples.len()/16000), producing garbage embeddings.
                             let diarization_samples: Option<Vec<f32>> = {
                                 let guard = diarization_clone.lock().await;
                                 if guard.is_some() {
-                                    Some(chunk.data.clone())
+                                    if chunk.sample_rate != 16000 {
+                                        Some(crate::audio::audio_processing::resample_audio(
+                                            &chunk.data,
+                                            chunk.sample_rate,
+                                            16000,
+                                        ))
+                                    } else {
+                                        Some(chunk.data.clone())
+                                    }
                                 } else {
                                     None
                                 }
