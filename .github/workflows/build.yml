@@ -404,13 +404,36 @@ jobs:
         if: contains(inputs.platform, 'windows')
         shell: pwsh
         run: |
-          Write-Host "Building llama-helper sidecar (CUDA)..."
+          # llama-cpp-sys-2 can race during Windows CUDA CMake/MSBuild generation.
+          # Try a cached, moderately parallel build first, then fall back to a clean
+          # serialized rebuild only if the fast path fails.
+          Write-Host "Building llama-helper sidecar (CUDA, parallel first)..."
+
+          $env:CARGO_BUILD_JOBS = "2"
+          $env:CMAKE_BUILD_PARALLEL_LEVEL = "2"
+          $env:CMAKE_VS_GLOBALS = "UseMultiToolTask=false;EnforceProcessCountAcrossBuilds=true;CL_MPCount=1"
 
           cargo build --release -p llama-helper --features cuda
+          $buildExitCode = $LASTEXITCODE
 
-          if ($LASTEXITCODE -ne 0) {
+          if ($buildExitCode -ne 0) {
+            Write-Warning "Parallel llama-helper build failed with exit code $buildExitCode; retrying serialized after clearing llama-cpp-sys-2 artifacts."
+
+            if (Test-Path "target/release/build") {
+              Get-ChildItem "target/release/build" -Directory -Filter "llama-cpp-sys-2-*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            $env:CARGO_BUILD_JOBS = "1"
+            $env:CMAKE_BUILD_PARALLEL_LEVEL = "1"
+            $env:CMAKE_VS_GLOBALS = "UseMultiToolTask=false;EnforceProcessCountAcrossBuilds=true;CL_MPCount=1"
+
+            cargo build --release -p llama-helper --features cuda
+            $buildExitCode = $LASTEXITCODE
+          }
+
+          if ($buildExitCode -ne 0) {
             Write-Error "Failed to build llama-helper"
-            exit $LASTEXITCODE
+            exit $buildExitCode
           }
 
           # Copy binary to binaries directory

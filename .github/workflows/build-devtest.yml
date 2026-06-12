@@ -354,8 +354,32 @@ jobs:
             echo "Using CUDA GPU acceleration for Linux"
           fi
 
-          # Build llama-helper from workspace root
-          cargo build --release -p llama-helper $LLAMA_FEATURES $CARGO_JOBS
+          # Build llama-helper from workspace root. Windows CUDA can race inside
+          # llama-cpp-sys-2, so try a faster parallel build before falling back
+          # to a clean serialized rebuild.
+          if [[ "${{ matrix.platform }}" == *"windows"* ]]; then
+            export CARGO_BUILD_JOBS="2"
+            export CMAKE_BUILD_PARALLEL_LEVEL="2"
+            export CMAKE_VS_GLOBALS="UseMultiToolTask=false;EnforceProcessCountAcrossBuilds=true;CL_MPCount=1"
+
+            set +e
+            cargo build --release -p llama-helper $LLAMA_FEATURES $CARGO_JOBS
+            BUILD_EXIT=$?
+            set -e
+
+            if [[ $BUILD_EXIT -ne 0 ]]; then
+              echo "Parallel llama-helper build failed with exit code $BUILD_EXIT; retrying serialized after clearing llama-cpp-sys-2 artifacts."
+              rm -rf target/release/build/llama-cpp-sys-2-*
+
+              export CARGO_BUILD_JOBS="1"
+              export CMAKE_BUILD_PARALLEL_LEVEL="1"
+              export CMAKE_VS_GLOBALS="UseMultiToolTask=false;EnforceProcessCountAcrossBuilds=true;CL_MPCount=1"
+
+              cargo build --release -p llama-helper $LLAMA_FEATURES $CARGO_JOBS
+            fi
+          else
+            cargo build --release -p llama-helper $LLAMA_FEATURES $CARGO_JOBS
+          fi
 
           # Determine binary extension
           EXT=""
