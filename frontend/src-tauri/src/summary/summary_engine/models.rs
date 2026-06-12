@@ -189,6 +189,32 @@ pub fn get_available_models() -> Vec<ModelDef> {
             sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
             description: "High-quality Qwen 3.5 model for built-in summaries. Best local Qwen option in the current lineup.".to_string(),
         },
+        // Qwen 3 8B - Premium quality tier for users with more local memory.
+        ModelDef {
+            name: "qwen3:8b".to_string(),
+            display_name: "Qwen 3 8B (Premium)".to_string(),
+            gguf_file: "Qwen3-8B-Q4_K_M.gguf".to_string(),
+            template: "qwen3.5_nonthinking".to_string(),
+            download_url: "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf".to_string(),
+            size_mb: 5030,
+            context_size: 40960,
+            layer_count: 36,
+            sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
+            description: "Premium local Qwen model for more nuanced meeting summaries. Larger download and memory footprint.".to_string(),
+        },
+        // Phi 4 Mini - Compact structured-summary alternative.
+        ModelDef {
+            name: "phi4-mini:3.8b".to_string(),
+            display_name: "Phi 4 Mini 3.8B (Structured)".to_string(),
+            gguf_file: "Phi-4-mini-instruct-Q4_K_M.gguf".to_string(),
+            template: "phi4".to_string(),
+            download_url: "https://huggingface.co/unsloth/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf".to_string(),
+            size_mb: 2490,
+            context_size: 32768,
+            layer_count: 32,
+            sampling: SamplingParams::tight_structured(vec!["<|end|>".to_string()]),
+            description: "Compact Phi model tuned for concise, structured output. Good for action items and decision-heavy notes.".to_string(),
+        },
         // Gemma 4 E4B - High quality Gemma tier.
         ModelDef {
             name: "gemma4:e4b".to_string(),
@@ -301,6 +327,15 @@ pub const QWEN35_NONTHINKING_TEMPLATE: &str = "\
 
 ";
 
+/// Phi 4 Mini instruct chat template format.
+pub const PHI4_TEMPLATE: &str = "\
+<|system|>
+{system_prompt}<|end|>
+<|user|>
+{user_prompt}<|end|>
+<|assistant|>
+";
+
 fn escape_user_prompt_control_markers(user_prompt: &str) -> String {
     user_prompt
         .replace("<|im_start|>", "< |im_start| >")
@@ -309,6 +344,10 @@ fn escape_user_prompt_control_markers(user_prompt: &str) -> String {
         .replace("<end_of_turn>", "< end_of_turn >")
         .replace("<think>", "< think >")
         .replace("</think>", "< /think >")
+        .replace("<|system|>", "< |system| >")
+        .replace("<|user|>", "< |user| >")
+        .replace("<|assistant|>", "< |assistant| >")
+        .replace("<|end|>", "< |end| >")
 }
 
 /// Format a prompt using the specified template
@@ -328,6 +367,7 @@ pub fn format_prompt(
     let template = match template_name {
         "gemma3" => GEMMA3_TEMPLATE,
         "qwen3.5_nonthinking" => QWEN35_NONTHINKING_TEMPLATE,
+        "phi4" => PHI4_TEMPLATE,
         _ => return Err(anyhow!("Unknown template: {}", template_name)),
     };
 
@@ -359,6 +399,22 @@ mod tests {
 
     #[test]
     fn qwen35_models_are_registered_with_expected_metadata() {
+        let qwen_8b = get_model_by_name("qwen3:8b").expect("qwen 8b model should exist");
+        assert_eq!(qwen_8b.display_name, "Qwen 3 8B (Premium)");
+        assert_eq!(qwen_8b.gguf_file, "Qwen3-8B-Q4_K_M.gguf");
+        assert_eq!(qwen_8b.template, "qwen3.5_nonthinking");
+        assert_eq!(
+            qwen_8b.download_url,
+            "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf"
+        );
+        assert_eq!(qwen_8b.size_mb, 5030);
+        assert_eq!(qwen_8b.context_size, 40960);
+        assert_eq!(qwen_8b.layer_count, 36);
+        assert_eq!(
+            qwen_8b.sampling,
+            SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()])
+        );
+
         let qwen_2b = get_model_by_name("qwen3.5:2b").expect("qwen 2b model should exist");
         assert_eq!(qwen_2b.display_name, "Qwen 3.5 2B (Balanced)");
         assert_eq!(qwen_2b.gguf_file, "Qwen3.5-2B-Q4_K_M.gguf");
@@ -389,6 +445,25 @@ mod tests {
         assert_eq!(
             qwen_4b.sampling,
             SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()])
+        );
+    }
+
+    #[test]
+    fn phi4_mini_model_uses_structured_template_and_sampling() {
+        let phi4 = get_model_by_name("phi4-mini:3.8b").expect("phi4 mini model should exist");
+        assert_eq!(phi4.display_name, "Phi 4 Mini 3.8B (Structured)");
+        assert_eq!(phi4.gguf_file, "Phi-4-mini-instruct-Q4_K_M.gguf");
+        assert_eq!(phi4.template, "phi4");
+        assert_eq!(
+            phi4.download_url,
+            "https://huggingface.co/unsloth/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf"
+        );
+        assert_eq!(phi4.size_mb, 2490);
+        assert_eq!(phi4.context_size, 32768);
+        assert_eq!(phi4.layer_count, 32);
+        assert_eq!(
+            phi4.sampling,
+            SamplingParams::tight_structured(vec!["<|end|>".to_string()])
         );
     }
 
@@ -504,6 +579,23 @@ mod tests {
         assert!(formatted.contains("literal < start_of_turn > and < end_of_turn >"));
         assert_eq!(formatted.matches("<start_of_turn>").count(), 3);
         assert_eq!(formatted.matches("<end_of_turn>").count(), 2);
+    }
+
+    #[test]
+    fn phi4_template_escapes_user_supplied_control_markers() {
+        let formatted = format_prompt(
+            "phi4",
+            "system rules",
+            "literal <|system|> and <|user|> and <|assistant|> and <|end|>",
+        )
+        .unwrap();
+
+        assert!(formatted.contains("<|system|>\nsystem rules<|end|>"));
+        assert!(formatted.contains("literal < |system| > and < |user| > and < |assistant| > and < |end| >"));
+        assert_eq!(formatted.matches("<|system|>").count(), 1);
+        assert_eq!(formatted.matches("<|user|>").count(), 1);
+        assert_eq!(formatted.matches("<|assistant|>").count(), 1);
+        assert_eq!(formatted.matches("<|end|>").count(), 2);
     }
 
     #[test]

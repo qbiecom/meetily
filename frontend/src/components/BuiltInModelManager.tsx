@@ -29,6 +29,37 @@ interface DownloadProgressInfo {
   speedMbps: number;
 }
 
+function getModelFamily(modelName: string): string {
+  if (modelName.startsWith('qwen')) return 'Qwen';
+  if (modelName.startsWith('gemma')) return 'Gemma';
+  if (modelName.startsWith('phi')) return 'Phi';
+  return 'Local';
+}
+
+function getModelTier(modelName: string): string {
+  if (modelName.includes('mini')) return 'Structured';
+  if (modelName === 'qwen3:8b') return 'Premium';
+  if (modelName.includes('e4b') || modelName.includes('4b')) return 'High quality';
+  if (modelName.includes('e2b') || modelName.includes('2b')) return 'Balanced';
+  if (modelName.includes('1b')) return 'Fast';
+  return 'General';
+}
+
+function getStatusLabel(model: ModelInfo, isDownloading: boolean): string {
+  if (isDownloading) return 'Downloading';
+  if (model.status.type === 'available') return 'Ready';
+  if (model.status.type === 'corrupted') return 'Corrupted';
+  if (model.status.type === 'error') return 'Error';
+  return 'Not downloaded';
+}
+
+function getStatusClass(model: ModelInfo, isDownloading: boolean): string {
+  if (isDownloading) return 'bg-blue-50 text-blue-700 border-blue-100';
+  if (model.status.type === 'available') return 'bg-green-50 text-green-700 border-green-100';
+  if (model.status.type === 'corrupted' || model.status.type === 'error') return 'bg-red-50 text-red-700 border-red-100';
+  return 'bg-gray-50 text-gray-600 border-gray-200';
+}
+
 interface BuiltInModelManagerProps {
   selectedModel: string;
   onModelSelect: (model: string) => void;
@@ -277,8 +308,11 @@ export function BuiltInModelManager({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-bold">Built-in AI Models</h4>
+      <div className="mb-4 flex flex-col gap-1">
+        <h4 className="text-sm font-bold text-gray-900">Built-in AI Models</h4>
+        <p className="text-xs text-gray-500">
+          Choose a private local model. Larger models usually produce better summaries but take more disk and memory.
+        </p>
       </div>
 
       <div
@@ -295,18 +329,21 @@ export function BuiltInModelManager({
           const isNotDownloaded = model.status.type === 'not_downloaded';
           const isCorrupted = model.status.type === 'corrupted';
           const isError = model.status.type === 'error';
+          const family = getModelFamily(model.name);
+          const tier = getModelTier(model.name);
+          const statusLabel = getStatusLabel(model, modelIsDownloading);
 
           return (
             <div
               key={model.name}
               className={cn(
-                'p-4 rounded-lg border transition-colors',
+                'group p-4 rounded-xl border transition-all',
                 modelIsDownloading
-                  ? 'bg-white border-gray-200'
+                  ? 'bg-white border-blue-100 shadow-sm'
                   : 'bg-card',
                 selectedModel === model.name
-                  ? 'ring-2 ring-gray-800 border-gray-800'
-                  : 'border-gray-200 hover:border-gray-300',
+                  ? 'ring-2 ring-gray-900 border-gray-900 shadow-sm'
+                  : 'border-gray-200 hover:border-gray-300 hover:shadow-sm',
                 isAvailable && !modelIsDownloading && 'cursor-pointer'
               )}
               onClick={() => {
@@ -318,32 +355,30 @@ export function BuiltInModelManager({
             <div className="space-y-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="min-w-0 break-words text-base font-bold leading-snug text-gray-900">{model.display_name || model.name}</span>
-                    {isAvailable && (
-                      <>
-                        <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-green-600">
-                          <span className="h-2 w-2 rounded-full bg-green-600"></span>
-                          Ready
-                        </span>
-                        {selectedModel === model.name && (
-                          <span className="shrink-0 rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                            Selected
-                          </span>
-                        )}
-                      </>
-                    )}
-                    {isCorrupted && (
-                      <span className="flex shrink-0 items-center gap-1 rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                        <BadgeAlert className="h-3 w-3" />
-                        Corrupted
+                  <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-600">
+                      {family}
+                    </span>
+                    <span className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                      {tier}
+                    </span>
+                    <span className={cn('rounded-full border px-2 py-0.5 text-[11px] font-medium', getStatusClass(model, modelIsDownloading))}>
+                      {statusLabel}
+                    </span>
+                    {selectedModel === model.name && (
+                      <span className="rounded-full border border-gray-900 bg-gray-900 px-2 py-0.5 text-[11px] font-medium text-white">
+                        Selected
                       </span>
                     )}
-                    {isError && (
-                      <span className="shrink-0 rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                        Error
-                      </span>
-                    )}
+                  </div>
+                  <div className="flex min-w-0 items-start gap-2">
+                    {(isCorrupted || isError) && <BadgeAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />}
+                    <div className="min-w-0">
+                      <div className="min-w-0 break-words text-base font-bold leading-snug text-gray-950">
+                        {model.display_name || model.name}
+                      </div>
+                      <div className="mt-1 font-mono text-[11px] text-gray-400">{model.name}</div>
+                    </div>
                   </div>
                 </div>
                 <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:ml-4 sm:w-auto sm:justify-end">
@@ -446,8 +481,10 @@ export function BuiltInModelManager({
                       : 'An error occurred'}
                   </p>
                 )}
-                <div className="text-xs text-gray-500">
-                  <span>{formatSummaryModelSizeLabelFromMb(model.size_mb)} • {model.context_size} tokens</span>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
+                  <span className="rounded-md bg-gray-50 px-2 py-1">{formatSummaryModelSizeLabelFromMb(model.size_mb)}</span>
+                  <span className="rounded-md bg-gray-50 px-2 py-1">{model.context_size.toLocaleString()} token context</span>
+                  <span className="rounded-md bg-gray-50 px-2 py-1">{model.gguf_file}</span>
                 </div>
                 </div>
               </div>
