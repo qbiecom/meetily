@@ -23,6 +23,8 @@ import { toast } from 'sonner';
 import { useState, useEffect, useRef, ReactNode } from 'react';
 import { isOllamaNotInstalledError } from '@/lib/utils';
 import { BuiltInModelInfo } from '@/lib/builtin-ai';
+import { SummaryTemplateInfo } from '@/hooks/meeting-details/useTemplates';
+import { TemplateEditorDialog } from './TemplateEditorDialog';
 
 interface SummaryGeneratorButtonGroupProps {
   languageSlot?: ReactNode;
@@ -33,9 +35,10 @@ interface SummaryGeneratorButtonGroupProps {
   onStopGeneration: () => void;
   customPrompt: string;
   summaryStatus: 'idle' | 'processing' | 'summarizing' | 'regenerating' | 'completed' | 'error';
-  availableTemplates: Array<{ id: string, name: string, description: string }>;
+  availableTemplates: SummaryTemplateInfo[];
   selectedTemplate: string;
   onTemplateSelect: (templateId: string, templateName: string) => void;
+  onTemplatesChanged: () => Promise<SummaryTemplateInfo[]>;
   hasTranscripts?: boolean;
   hasSummary?: boolean;
   isModelConfigLoading?: boolean;
@@ -53,6 +56,7 @@ export function SummaryGeneratorButtonGroup({
   availableTemplates,
   selectedTemplate,
   onTemplateSelect,
+  onTemplatesChanged,
   hasTranscripts = true,
   hasSummary = false,
   isModelConfigLoading = false,
@@ -61,6 +65,7 @@ export function SummaryGeneratorButtonGroup({
 }: SummaryGeneratorButtonGroupProps) {
   const [isCheckingModels, setIsCheckingModels] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
 
   // Expose the function to open the modal via callback registration
   useEffect(() => {
@@ -346,15 +351,30 @@ export function SummaryGeneratorButtonGroup({
                 className="flex items-center justify-between gap-2"
               >
                 <span>{template.name}</span>
+                {template.is_custom && <span className="text-xs text-muted-foreground">Custom</span>}
                 {selectedTemplate === template.id && (
                   <Check className="h-4 w-4 text-green-600" />
                 )}
               </DropdownMenuItem>
             ))}
+            <DropdownMenuItem
+              onClick={() => setTemplateEditorOpen(true)}
+              className="border-t font-medium"
+            >
+              Manage templates...
+            </DropdownMenuItem>
 
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+      <TemplateEditorDialog
+        open={templateEditorOpen}
+        onOpenChange={setTemplateEditorOpen}
+        templates={availableTemplates}
+        selectedTemplate={selectedTemplate}
+        onTemplateSelect={onTemplateSelect}
+        onTemplatesChanged={onTemplatesChanged}
+      />
     </ButtonGroup>
   );
 }

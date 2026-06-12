@@ -22,11 +22,18 @@ pub fn set_bundled_templates_dir(path: PathBuf) {
 /// - macOS: ~/Library/Application Support/Meetily/templates/
 /// - Windows: %APPDATA%\Meetily\templates\
 /// - Linux: ~/.config/Meetily/templates/
-fn get_custom_templates_dir() -> Option<PathBuf> {
+pub fn get_custom_templates_dir() -> Option<PathBuf> {
     let mut path = dirs::data_dir()?;
     path.push("Meetily");
     path.push("templates");
     Some(path)
+}
+
+fn is_safe_template_id(template_id: &str) -> bool {
+    !template_id.is_empty()
+        && template_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
 /// Load a template from the bundled resources directory
@@ -121,6 +128,59 @@ pub fn get_template(template_id: &str) -> Result<Template, String> {
 
     // Parse and validate
     validate_and_parse_template(&json_content)
+}
+
+pub fn get_template_json(template_id: &str) -> Result<String, String> {
+    if !is_safe_template_id(template_id) {
+        return Err("Template ID may only contain letters, numbers, hyphens, and underscores".to_string());
+    }
+
+    if let Some(custom_content) = load_custom_template(template_id) {
+        Ok(custom_content)
+    } else if let Some(bundled_content) = load_bundled_template(template_id) {
+        Ok(bundled_content)
+    } else if let Some(builtin_content) = defaults::get_builtin_template(template_id) {
+        Ok(builtin_content.to_string())
+    } else {
+        Err(format!("Template '{}' not found", template_id))
+    }
+}
+
+pub fn save_custom_template(template_id: &str, json_content: &str) -> Result<Template, String> {
+    if !is_safe_template_id(template_id) {
+        return Err("Template ID may only contain letters, numbers, hyphens, and underscores".to_string());
+    }
+
+    let template = validate_and_parse_template(json_content)?;
+    let custom_dir = get_custom_templates_dir()
+        .ok_or_else(|| "Unable to resolve custom templates directory".to_string())?;
+    std::fs::create_dir_all(&custom_dir)
+        .map_err(|e| format!("Failed to create custom templates directory: {}", e))?;
+
+    let pretty_json = serde_json::to_string_pretty(&template)
+        .map_err(|e| format!("Failed to serialize template: {}", e))?;
+    let template_path = custom_dir.join(format!("{}.json", template_id));
+    std::fs::write(&template_path, pretty_json)
+        .map_err(|e| format!("Failed to save template: {}", e))?;
+
+    Ok(template)
+}
+
+pub fn delete_custom_template(template_id: &str) -> Result<(), String> {
+    if !is_safe_template_id(template_id) {
+        return Err("Template ID may only contain letters, numbers, hyphens, and underscores".to_string());
+    }
+
+    let custom_dir = get_custom_templates_dir()
+        .ok_or_else(|| "Unable to resolve custom templates directory".to_string())?;
+    let template_path = custom_dir.join(format!("{}.json", template_id));
+
+    if !template_path.exists() {
+        return Err("Only custom templates can be deleted from the app".to_string());
+    }
+
+    std::fs::remove_file(&template_path)
+        .map_err(|e| format!("Failed to delete template: {}", e))
 }
 
 /// Validate and parse template JSON
