@@ -36,7 +36,10 @@ pub fn get_builtin_template(id: &str) -> Option<&'static str> {
 
 /// List all built-in template identifiers
 pub fn list_builtin_template_ids() -> Vec<&'static str> {
-    vec!["daily_standup", "standard_meeting"]
+    get_builtin_templates()
+        .into_iter()
+        .map(|(id, _)| id)
+        .collect()
 }
 
 #[cfg(test)]
