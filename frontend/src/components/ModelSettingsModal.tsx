@@ -31,7 +31,7 @@ import { cn, isOllamaNotInstalledError } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export interface ModelConfig {
-  provider: 'ollama' | 'groq' | 'claude' | 'openai' | 'openrouter' | 'builtin-ai' | 'custom-openai';
+  provider: 'ollama' | 'groq' | 'claude' | 'openai' | 'openrouter' | 'kilo-gateway' | 'builtin-ai' | 'custom-openai';
   model: string;
   whisperModel: string;
   apiKey?: string | null;
@@ -74,6 +74,12 @@ interface GroqModel {
   owned_by?: string;
 }
 
+interface KiloGatewayModel {
+  id: string;
+  name: string;
+  context_length?: number;
+}
+
 // Fallback models for when API fetch fails or no API key provided
 const OPENAI_FALLBACK_MODELS = [
   'gpt-4o',
@@ -99,6 +105,14 @@ const GROQ_FALLBACK_MODELS = [
   'llama-3.1-70b-versatile',
   'mixtral-8x7b-32768',
   'gemma2-9b-it',
+];
+
+const KILO_GATEWAY_FALLBACK_MODELS = [
+  'kilo/auto',
+  'anthropic/claude-sonnet-4.6',
+  'openai/gpt-5.4',
+  'google/gemini-3.1-pro-preview',
+  'openrouter/free',
 ];
 
 interface ModelSettingsModalProps {
@@ -162,9 +176,11 @@ export function ModelSettingsModal({
   const [openaiModels, setOpenaiModels] = useState<string[]>([]);
   const [claudeModels, setClaudeModels] = useState<string[]>([]);
   const [groqModels, setGroqModels] = useState<string[]>([]);
+  const [kiloGatewayModels, setKiloGatewayModels] = useState<string[]>([]);
   const [isLoadingOpenAI, setIsLoadingOpenAI] = useState<boolean>(false);
   const [isLoadingClaude, setIsLoadingClaude] = useState<boolean>(false);
   const [isLoadingGroq, setIsLoadingGroq] = useState<boolean>(false);
+  const [isLoadingKiloGateway, setIsLoadingKiloGateway] = useState<boolean>(false);
 
   // Use global download context instead of local state
   const { isDownloading, getProgress, downloadingModels } = useOllamaDownload();
@@ -229,6 +245,7 @@ export function ModelSettingsModal({
     groq: groqModels.length > 0 ? groqModels : GROQ_FALLBACK_MODELS,
     openai: openaiModels.length > 0 ? openaiModels : OPENAI_FALLBACK_MODELS,
     openrouter: openRouterModels.map((m) => m.id),
+    'kilo-gateway': kiloGatewayModels.length > 0 ? kiloGatewayModels : KILO_GATEWAY_FALLBACK_MODELS,
     'builtin-ai': builtinAiModels.map((m) => m.name),
     'custom-openai': customOpenAIModel ? [customOpenAIModel] : [], // User specifies model manually
   };
@@ -237,6 +254,7 @@ export function ModelSettingsModal({
     modelConfig.provider === 'claude' ||
     modelConfig.provider === 'groq' ||
     modelConfig.provider === 'openai' ||
+    modelConfig.provider === 'kilo-gateway' ||
     modelConfig.provider === 'openrouter';
 
   // Check if Ollama endpoint has changed but models haven't been fetched yet
@@ -577,6 +595,21 @@ export function ModelSettingsModal({
     }
   };
 
+  const loadKiloGatewayModels = async () => {
+    if (kiloGatewayModels.length > 0) return;
+
+    setIsLoadingKiloGateway(true);
+    try {
+      const data = (await invoke('get_kilo_gateway_models')) as KiloGatewayModel[];
+      setKiloGatewayModels(data.map((m) => m.id));
+    } catch (err) {
+      console.error('Error loading Kilo Gateway models:', err);
+      setKiloGatewayModels([]);
+    } finally {
+      setIsLoadingKiloGateway(false);
+    }
+  };
+
   // Auto-fetch OpenAI models when provider is openai and we have an API key
   useEffect(() => {
     if (modelConfig.provider === 'openai' && apiKey?.trim()) {
@@ -598,6 +631,12 @@ export function ModelSettingsModal({
     }
   }, [modelConfig.provider, apiKey]);
 
+  useEffect(() => {
+    if (modelConfig.provider === 'kilo-gateway') {
+      loadKiloGatewayModels();
+    }
+  }, [modelConfig.provider]);
+
   // Restore cached model when async model lists become available
   useEffect(() => {
     const providerModels = modelOptions[modelConfig.provider];
@@ -612,7 +651,7 @@ export function ModelSettingsModal({
     if (cachedModel && providerModels.includes(cachedModel)) {
       setModelConfig((prev: ModelConfig) => ({ ...prev, model: cachedModel }));
     }
-  }, [models, openRouterModels, builtinAiModels, openaiModels, claudeModels, groqModels, modelConfig.provider]);
+  }, [models, openRouterModels, builtinAiModels, openaiModels, claudeModels, groqModels, kiloGatewayModels, modelConfig.provider]);
 
   const handleSave = async () => {
     // For custom-openai provider, save the custom config first
@@ -848,6 +887,10 @@ export function ModelSettingsModal({
                   loadOpenRouterModels();
                 }
 
+                if (provider === 'kilo-gateway') {
+                  loadKiloGatewayModels();
+                }
+
                 // Load Built-in AI models when selected
                 if (provider === 'builtin-ai') {
                   loadBuiltinAiModels();
@@ -878,6 +921,7 @@ export function ModelSettingsModal({
                 <SelectItem value="claude">Claude</SelectItem>
                 <SelectItem value="custom-openai">Custom Server (OpenAI)</SelectItem>
                 <SelectItem value="groq">Groq</SelectItem>
+                <SelectItem value="kilo-gateway">Kilo Gateway</SelectItem>
                 <SelectItem value="ollama">Ollama</SelectItem>
                 <SelectItem value="openai">OpenAI</SelectItem>
                 <SelectItem value="openrouter">OpenRouter</SelectItem>
@@ -904,9 +948,10 @@ export function ModelSettingsModal({
                     <CommandInput placeholder="Search models..." />
                     <CommandList className="max-h-[300px]">
                       {(modelConfig.provider === 'openrouter' && isLoadingOpenRouter) ||
-                       (modelConfig.provider === 'openai' && isLoadingOpenAI) ||
-                       (modelConfig.provider === 'claude' && isLoadingClaude) ||
-                       (modelConfig.provider === 'groq' && isLoadingGroq) ? (
+                        (modelConfig.provider === 'openai' && isLoadingOpenAI) ||
+                        (modelConfig.provider === 'claude' && isLoadingClaude) ||
+                        (modelConfig.provider === 'kilo-gateway' && isLoadingKiloGateway) ||
+                        (modelConfig.provider === 'groq' && isLoadingGroq) ? (
                         <div className="py-6 text-center text-sm text-muted-foreground">
                           <RefreshCw className="mx-auto h-4 w-4 animate-spin mb-2" />
                           Loading models...

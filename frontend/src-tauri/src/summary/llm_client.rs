@@ -71,6 +71,7 @@ pub enum LLMProvider {
     Groq,
     Ollama,
     OpenRouter,
+    KiloGateway,
     BuiltInAI,
     CustomOpenAI,
 }
@@ -84,6 +85,7 @@ impl LLMProvider {
             "groq" => Ok(Self::Groq),
             "ollama" => Ok(Self::Ollama),
             "openrouter" => Ok(Self::OpenRouter),
+            "kilo-gateway" | "kilocode" => Ok(Self::KiloGateway),
             "builtin-ai" | "local-llama" | "localllama" => Ok(Self::BuiltInAI),
             "custom-openai" => Ok(Self::CustomOpenAI),
             _ => Err(format!("Unsupported LLM provider: {}", s)),
@@ -159,6 +161,10 @@ pub async fn generate_summary(
         ),
         LLMProvider::OpenRouter => (
             "https://openrouter.ai/api/v1/chat/completions".to_string(),
+            header::HeaderMap::new(),
+        ),
+        LLMProvider::KiloGateway => (
+            "https://api.kilo.ai/api/gateway/chat/completions".to_string(),
             header::HeaderMap::new(),
         ),
         LLMProvider::Ollama => {
@@ -349,6 +355,7 @@ fn provider_name(provider: &LLMProvider) -> &str {
         LLMProvider::Ollama => "Ollama",
         LLMProvider::BuiltInAI => "Built-in AI",
         LLMProvider::OpenRouter => "OpenRouter",
+        LLMProvider::KiloGateway => "Kilo Gateway",
         LLMProvider::CustomOpenAI => "Custom OpenAI",
     }
 }
