@@ -25,7 +25,7 @@ pub struct SaveTranscriptConfigRequest {
 pub struct SettingsRepository;
 
 // Transcript providers: localWhisper, deepgram, elevenLabs, groq, openai
-// Summary providers: openai, claude, ollama, groq, added openrouter
+// Summary providers: openai, claude, ollama, groq, openrouter, kilo-gateway
 // NOTE: Handle data exclusion in the higher layer as this is database abstraction layer(using SELECT *)
 
 impl SettingsRepository {
@@ -145,6 +145,19 @@ impl SettingsRepository {
                 .execute(pool)
                 .await?;
             }
+            "kilo-gateway" => {
+                sqlx::query(
+                    r#"
+                    INSERT INTO settings (id, provider, model, whisperModel, kiloGatewayApiKey)
+                    VALUES ('1', 'openai', 'gpt-4o-2024-11-20', 'large-v3', $1)
+                    ON CONFLICT(id) DO UPDATE SET
+                        kiloGatewayApiKey = $1
+                    "#,
+                )
+                .bind(api_key)
+                .execute(pool)
+                .await?;
+            }
             "builtin-ai" => return Ok(()), // No API key needed
             _ => {
                 return Err(sqlx::Error::Protocol(
@@ -189,6 +202,11 @@ impl SettingsRepository {
             }
             "openrouter" => {
                 sqlx::query_scalar("SELECT openRouterApiKey FROM settings WHERE id = '1' LIMIT 1")
+                    .fetch_optional(pool)
+                    .await?
+            }
+            "kilo-gateway" => {
+                sqlx::query_scalar("SELECT kiloGatewayApiKey FROM settings WHERE id = '1' LIMIT 1")
                     .fetch_optional(pool)
                     .await?
             }
@@ -390,6 +408,9 @@ impl SettingsRepository {
             "claude" => sqlx::query("UPDATE settings SET anthropicApiKey = NULL WHERE id = '1'"),
             "openrouter" => {
                 sqlx::query("UPDATE settings SET openRouterApiKey = NULL WHERE id = '1'")
+            }
+            "kilo-gateway" => {
+                sqlx::query("UPDATE settings SET kiloGatewayApiKey = NULL WHERE id = '1'")
             }
             "builtin-ai" => return Ok(()), // No API key needed
             _ => {
