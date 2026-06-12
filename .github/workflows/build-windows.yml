@@ -580,18 +580,30 @@ jobs:
       - name: Stage Windows CUDA runtime DLLs
         shell: pwsh
         run: |
-          $cudaBin = Join-Path $env:CUDA_PATH "bin"
           $dllNames = @(
             "cublas64_13.dll",
             "cublasLt64_13.dll"
           )
+          $cudaSearchDirs = @(
+            (Join-Path $env:CUDA_PATH "bin"),
+            (Join-Path $env:CUDA_PATH "bin\x64")
+          )
 
           foreach ($dllName in $dllNames) {
-            $source = Join-Path $cudaBin $dllName
+            $source = $cudaSearchDirs |
+              ForEach-Object { Join-Path $_ $dllName } |
+              Where-Object { Test-Path -LiteralPath $_ } |
+              Select-Object -First 1
+
+            if ([string]::IsNullOrWhiteSpace($source)) {
+              $source = Get-ChildItem -LiteralPath $env:CUDA_PATH -Recurse -Filter $dllName -File -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty FullName -First 1
+            }
+
             $destination = Join-Path "frontend/src-tauri" $dllName
 
-            if (-not (Test-Path -LiteralPath $source)) {
-              Write-Error "Required CUDA runtime DLL was not found: $source"
+            if ([string]::IsNullOrWhiteSpace($source) -or -not (Test-Path -LiteralPath $source)) {
+              Write-Error "Required CUDA runtime DLL was not found under CUDA_PATH: $env:CUDA_PATH ($dllName)"
               exit 1
             }
 
