@@ -577,6 +577,30 @@ jobs:
           Write-Host "Copied llama-helper to frontend/src-tauri/binaries/"
           Get-ChildItem "frontend/src-tauri/binaries/"
 
+      - name: Stage Windows CUDA runtime DLLs
+        shell: pwsh
+        run: |
+          $cudaBin = Join-Path $env:CUDA_PATH "bin"
+          $dllNames = @(
+            "cublas64_13.dll",
+            "cublasLt64_13.dll"
+          )
+
+          foreach ($dllName in $dllNames) {
+            $source = Join-Path $cudaBin $dllName
+            $destination = Join-Path "frontend/src-tauri" $dllName
+
+            if (-not (Test-Path -LiteralPath $source)) {
+              Write-Error "Required CUDA runtime DLL was not found: $source"
+              exit 1
+            }
+
+            Copy-Item -LiteralPath $source -Destination $destination -Force
+            Write-Host "Staged CUDA runtime DLL: $destination"
+          }
+
+          Get-ChildItem "frontend/src-tauri" -Filter "*.dll" | Select-Object Name, Length
+
       - name: Cache FFmpeg binary
         uses: actions/cache@v5
         with:
@@ -593,6 +617,12 @@ jobs:
           $ciConfigPath = Join-Path "frontend/src-tauri" $ciConfigFileName
           $ciConfigArgPath = "src-tauri/$ciConfigFileName"
           $tauriConfig = Get-Content $tauriConfigPath -Raw | ConvertFrom-Json
+
+          $tauriConfig.bundle.resources = @(
+            "templates/*.json",
+            "cublas64_13.dll",
+            "cublasLt64_13.dll"
+          )
 
           $originalVersion = [string]$tauriConfig.version
           $bundleVersion = $originalVersion

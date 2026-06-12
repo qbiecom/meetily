@@ -420,6 +420,31 @@ jobs:
           Write-Host "Copied llama-helper to frontend/src-tauri/binaries/"
           Get-ChildItem "frontend/src-tauri/binaries/"
 
+      - name: Stage Windows CUDA runtime DLLs
+        if: contains(inputs.platform, 'windows')
+        shell: pwsh
+        run: |
+          $cudaBin = Join-Path $env:CUDA_PATH "bin"
+          $dllNames = @(
+            "cublas64_13.dll",
+            "cublasLt64_13.dll"
+          )
+
+          foreach ($dllName in $dllNames) {
+            $source = Join-Path $cudaBin $dllName
+            $destination = Join-Path "frontend/src-tauri" $dllName
+
+            if (-not (Test-Path -LiteralPath $source)) {
+              Write-Error "Required CUDA runtime DLL was not found: $source"
+              exit 1
+            }
+
+            Copy-Item -LiteralPath $source -Destination $destination -Force
+            Write-Host "Staged CUDA runtime DLL: $destination"
+          }
+
+          Get-ChildItem "frontend/src-tauri" -Filter "*.dll" | Select-Object Name, Length
+
       - name: Build llama-helper sidecar (macOS/Linux)
         if: "!contains(inputs.platform, 'windows')"
         shell: bash
@@ -459,6 +484,29 @@ jobs:
           path: frontend/src-tauri/binaries/ffmpeg-*
           key: ${{ runner.os }}-ffmpeg-${{ hashFiles('frontend/src-tauri/build.rs', 'frontend/src-tauri/build/ffmpeg.rs') }}    
 
+      - name: Prepare Windows Tauri config
+        id: tauri-windows-config
+        if: contains(inputs.platform, 'windows')
+        shell: pwsh
+        run: |
+          $jsonDepth = 99
+          $tauriConfigPath = "frontend/src-tauri/tauri.conf.json"
+          $ciConfigFileName = "tauri.windows-ci-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT.json"
+          $ciConfigPath = Join-Path "frontend/src-tauri" $ciConfigFileName
+          $ciConfigArgPath = "src-tauri/$ciConfigFileName"
+          $tauriConfig = Get-Content $tauriConfigPath -Raw | ConvertFrom-Json
+
+          $tauriConfig.bundle.resources = @(
+            "templates/*.json",
+            "cublas64_13.dll",
+            "cublasLt64_13.dll"
+          )
+
+          $tauriConfig | ConvertTo-Json -Depth $jsonDepth | Set-Content -Path $ciConfigPath -Encoding utf8
+
+          "config_arg=--config $ciConfigArgPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "Prepared Windows Tauri config at $ciConfigPath"
+
       - name: Build with Tauri
         id: tauri-build
         uses: tauri-apps/tauri-action@v0
@@ -484,7 +532,7 @@ jobs:
           tagName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseId: ${{ inputs.release-id }}
-          args: ${{ inputs.build-args }} ${{ steps.build-features.outputs.features }}
+          args: ${{ inputs.build-args }} ${{ steps.build-features.outputs.features }} ${{ steps.tauri-windows-config.outputs.config_arg }}
 
       - name: Upload artifacts (macOS)
         if: inputs.upload-artifacts && contains(inputs.platform, 'macos')

@@ -370,6 +370,54 @@ jobs:
           echo "Copied llama-helper to frontend/src-tauri/binaries/llama-helper-${{ matrix.target }}${EXT}"
           ls -la frontend/src-tauri/binaries/
 
+      - name: Stage Windows CUDA runtime DLLs
+        if: contains(matrix.platform, 'windows')
+        shell: pwsh
+        run: |
+          $cudaBin = Join-Path $env:CUDA_PATH "bin"
+          $dllNames = @(
+            "cublas64_13.dll",
+            "cublasLt64_13.dll"
+          )
+
+          foreach ($dllName in $dllNames) {
+            $source = Join-Path $cudaBin $dllName
+            $destination = Join-Path "frontend/src-tauri" $dllName
+
+            if (-not (Test-Path -LiteralPath $source)) {
+              Write-Error "Required CUDA runtime DLL was not found: $source"
+              exit 1
+            }
+
+            Copy-Item -LiteralPath $source -Destination $destination -Force
+            Write-Host "Staged CUDA runtime DLL: $destination"
+          }
+
+          Get-ChildItem "frontend/src-tauri" -Filter "*.dll" | Select-Object Name, Length
+
+      - name: Prepare Windows Tauri config
+        id: tauri-windows-config
+        if: contains(matrix.platform, 'windows')
+        shell: pwsh
+        run: |
+          $jsonDepth = 99
+          $tauriConfigPath = "frontend/src-tauri/tauri.conf.json"
+          $ciConfigFileName = "tauri.windows-ci-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT.json"
+          $ciConfigPath = Join-Path "frontend/src-tauri" $ciConfigFileName
+          $ciConfigArgPath = "src-tauri/$ciConfigFileName"
+          $tauriConfig = Get-Content $tauriConfigPath -Raw | ConvertFrom-Json
+
+          $tauriConfig.bundle.resources = @(
+            "templates/*.json",
+            "cublas64_13.dll",
+            "cublasLt64_13.dll"
+          )
+
+          $tauriConfig | ConvertTo-Json -Depth $jsonDepth | Set-Content -Path $ciConfigPath -Encoding utf8
+
+          "config_arg=--config $ciConfigArgPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "Prepared Windows Tauri config at $ciConfigPath"
+
       # Build step (with code signing)
       - name: Build Tauri app (with code signing)
         if: github.event.inputs.sign-build == 'true'
@@ -394,7 +442,7 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         with:
           projectPath: frontend
-          args: ${{ matrix.args }} ${{ steps.build-features.outputs.features }}
+          args: ${{ matrix.args }} ${{ steps.build-features.outputs.features }} ${{ steps.tauri-windows-config.outputs.config_arg }}
 
       # Build step (without code signing - updater signing only)
       - name: Build Tauri app (unsigned)
@@ -412,7 +460,7 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         with:
           projectPath: frontend
-          args: ${{ matrix.args }} ${{ steps.build-features.outputs.features }}
+          args: ${{ matrix.args }} ${{ steps.build-features.outputs.features }} ${{ steps.tauri-windows-config.outputs.config_arg }}
 
       # Linux post-build processing
       - name: Remove libwayland-client.so from AppImage
