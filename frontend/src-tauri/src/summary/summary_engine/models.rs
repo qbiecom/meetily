@@ -189,6 +189,32 @@ pub fn get_available_models() -> Vec<ModelDef> {
             sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
             description: "High-quality Qwen 3.5 model for built-in summaries. Best local Qwen option in the current lineup.".to_string(),
         },
+        // Gemma 4 E4B - High quality Gemma tier.
+        ModelDef {
+            name: "gemma4:e4b".to_string(),
+            display_name: "Gemma 4 E4B (High Quality)".to_string(),
+            gguf_file: "gemma-4-E4B-it-Q4_K_M.gguf".to_string(),
+            template: "gemma3".to_string(),
+            download_url: "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf".to_string(),
+            size_mb: 4980,
+            context_size: 32768,
+            layer_count: 35,
+            sampling: SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]),
+            description: "High-quality Gemma 4 model for local summaries. Strong quality with higher local memory requirements.".to_string(),
+        },
+        // Gemma 4 E2B - Fast Gemma tier.
+        ModelDef {
+            name: "gemma4:e2b".to_string(),
+            display_name: "Gemma 4 E2B (Fast)".to_string(),
+            gguf_file: "gemma-4-E2B-it-Q4_K_M.gguf".to_string(),
+            template: "gemma3".to_string(),
+            download_url: "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf".to_string(),
+            size_mb: 3110,
+            context_size: 32768,
+            layer_count: 26,
+            sampling: SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]),
+            description: "Fast Gemma 4 model for local summaries. Good quality/speed balance with moderate local requirements.".to_string(),
+        },
         // Gemma 3 4B - Legacy alternative retained for users who prefer Gemma output.
         ModelDef {
             name: "gemma3:4b".to_string(),
@@ -368,6 +394,38 @@ mod tests {
 
     #[test]
     fn gemma_models_use_huggingface_urls_and_gemma3_instruct_sampling() {
+        let gemma_e2b = get_model_by_name("gemma4:e2b").expect("gemma e2b model should exist");
+        assert_eq!(gemma_e2b.display_name, "Gemma 4 E2B (Fast)");
+        assert_eq!(gemma_e2b.gguf_file, "gemma-4-E2B-it-Q4_K_M.gguf");
+        assert_eq!(gemma_e2b.template, "gemma3");
+        assert_eq!(
+            gemma_e2b.download_url,
+            "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
+        );
+        assert_eq!(gemma_e2b.size_mb, 3110);
+        assert_eq!(gemma_e2b.context_size, 32768);
+        assert_eq!(gemma_e2b.layer_count, 26);
+        assert_eq!(
+            gemma_e2b.sampling,
+            SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()])
+        );
+
+        let gemma_e4b = get_model_by_name("gemma4:e4b").expect("gemma e4b model should exist");
+        assert_eq!(gemma_e4b.display_name, "Gemma 4 E4B (High Quality)");
+        assert_eq!(gemma_e4b.gguf_file, "gemma-4-E4B-it-Q4_K_M.gguf");
+        assert_eq!(gemma_e4b.template, "gemma3");
+        assert_eq!(
+            gemma_e4b.download_url,
+            "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
+        );
+        assert_eq!(gemma_e4b.size_mb, 4980);
+        assert_eq!(gemma_e4b.context_size, 32768);
+        assert_eq!(gemma_e4b.layer_count, 35);
+        assert_eq!(
+            gemma_e4b.sampling,
+            SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()])
+        );
+
         let gemma_1b = get_model_by_name("gemma3:1b").expect("gemma 1b model should exist");
         assert_eq!(gemma_1b.gguf_file, "gemma-3-1b-it-Q8_0.gguf");
         assert_eq!(

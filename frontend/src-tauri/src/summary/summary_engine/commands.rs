@@ -14,7 +14,9 @@ pub(crate) fn summary_model_priority(model_name: &str) -> u8 {
     match model_name {
         "qwen3.5:4b" => 4,
         "qwen3.5:2b" => 3,
-        "gemma3:4b" => 2,
+        "gemma4:e4b" => 2,
+        "gemma4:e2b" => 2,
+        "gemma3:4b" => 1,
         "gemma3:1b" => 1,
         _ => 0,
     }
@@ -428,7 +430,9 @@ mod tests {
     #[test]
     fn available_summary_model_priority_prefers_qwen_over_gemma() {
         assert!(summary_model_priority("qwen3.5:4b") > summary_model_priority("qwen3.5:2b"));
-        assert!(summary_model_priority("qwen3.5:2b") > summary_model_priority("gemma3:4b"));
-        assert!(summary_model_priority("gemma3:4b") > summary_model_priority("gemma3:1b"));
+        assert!(summary_model_priority("qwen3.5:2b") > summary_model_priority("gemma4:e4b"));
+        assert_eq!(summary_model_priority("gemma4:e4b"), summary_model_priority("gemma4:e2b"));
+        assert!(summary_model_priority("gemma4:e2b") > summary_model_priority("gemma3:4b"));
+        assert_eq!(summary_model_priority("gemma3:4b"), summary_model_priority("gemma3:1b"));
     }
 }
