@@ -8,6 +8,9 @@ repository = "https://github.com/Zackriya-Solutions/meeting-minutes"
 edition = "2021"
 rust-version = "1.77"
 
+[package.metadata.cargo-machete]
+ignored = ["tauri-plugin-fs"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
@@ -75,9 +78,6 @@ cpal = "0.15.3"
 # Wav encoding - now using manual WAV creation instead of hound
 # hound = "3.5"
 
-# Cli ! shouldn't be required if using as lib
-clap = { version = "4.3", features = ["derive"] }
-
 # Dates
 chrono = { version = "0.4.31", features = ["serde"] }
 
@@ -120,10 +120,6 @@ dashmap = "6.1.0"
 # Directories
 dirs = "5.0.1"
 
-# Additional dependencies for notification system
-url = "2.5.0"
-
-
 # System monitoring for resource management
 sysinfo = "0.32"
 
@@ -131,11 +127,8 @@ lazy_static = { version = "1.4.0" }
 realfft = "3.4.0"
 regex = "1.11.0"
 ndarray = "0.16"
-bytes = { version = "1.9.0", features = ["serde"] }
 
-esaxx-rs = "0.1.10"
 symphonia = { version = "0.5.4", features = ["aac", "isomp4", "mp3", "flac", "ogg", "vorbis", "pcm", "wav", "opt-simd"] }
-rand = "0.8.5"
 rayon = "1.10"
 rubato = "0.15.0"
 ringbuf = "0.4.8"
@@ -209,4 +202,3 @@ tracing-subscriber = "0.3.16"
 
 [patch.crates-io]
 cpal = { git = "https://github.com/RustAudio/cpal", rev = "51c3b43" }
-esaxx-rs = { git = "https://github.com/thewh1teagle/esaxx-rs.git", branch = "feat/dynamic-msvc-link" }

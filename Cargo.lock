@@ -898,7 +898,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ddb117e43bbf7dacf0a4190fef4d345b9bad68dfc649cb349e7d17d28428e51"
 dependencies = [
  "clap_builder",
- "clap_derive",
 ]
 
 [[package]]
@@ -907,22 +906,8 @@ version = "4.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "714a53001bf66416adb0e2ef5ac857140e7dc3a0c48fb28b2f10762fc4b5069f"
 dependencies = [
- "anstream",
  "anstyle",
  "clap_lex 1.1.0",
- "strsim 0.11.1",
-]
-
-[[package]]
-name = "clap_derive"
-version = "4.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2ce8604710f6733aa641a2b3731eaa1e8b3d9973d5e3565da11800813f997a9"
-dependencies = [
- "heck 0.5.0",
- "proc-macro2",
- "quote",
- "syn 2.0.117",
 ]
 
 [[package]]
@@ -1938,15 +1923,6 @@ checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "esaxx-rs"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d817e038c30374a4bcb22f94d0a8a0e216958d4c3dcde369b1439fec4bdda6e6"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -3616,10 +3592,8 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bytemuck",
- "bytes",
  "chrono",
  "cidre",
- "clap 4.6.1",
  "core-graphics 0.23.2",
  "cpal",
  "criterion",
@@ -3629,7 +3603,6 @@ dependencies = [
  "dirs 5.0.1",
  "ebur128",
  "env_logger",
- "esaxx-rs",
  "ffmpeg-sidecar",
  "futures",
  "futures-channel",
@@ -3644,7 +3617,6 @@ dependencies = [
  "once_cell",
  "ort",
  "posthog-rs",
- "rand 0.8.6",
  "rayon",
  "realfft",
  "regex",
@@ -3676,7 +3648,6 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
- "url",
  "uuid",
  "whatlang",
  "which 6.0.3",
