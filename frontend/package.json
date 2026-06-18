@@ -43,7 +43,7 @@
         "@radix-ui/react-slot": "^1.2.3",
         "@radix-ui/react-switch": "^1.2.5",
         "@radix-ui/react-tabs": "^1.1.12",
-        "@radix-ui/react-tooltip": "^1.2.8",
+        "@radix-ui/react-tooltip": "^1.2.10",
         "@tanstack/react-virtual": "^3.14.3",
         "@tauri-apps/api": "^2.6.0",
         "@tauri-apps/plugin-os": "^2.3.2",
