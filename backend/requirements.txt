@@ -1,7 +1,0 @@
-pydantic-ai==0.2.15
-pydantic==2.11.5
-python-dotenv==1.1.0
-fastapi==0.137.2
-uvicorn==0.34.0
-aiosqlite==0.21.0
-ollama==0.5.2
