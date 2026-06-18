@@ -33,8 +33,8 @@ importers:
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/react-progress':
-        specifier: ^1.1.8
-        version: 1.1.8(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ^1.1.10
+        version: 1.1.10(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/react-scroll-area':
         specifier: ^1.2.9
         version: 1.2.10(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -938,8 +938,8 @@ packages:
       '@types/react-dom':
         optional: true
 
-  '@radix-ui/react-progress@1.1.7':
-    resolution: {integrity: sha512-vPdg/tF6YC/ynuBIJlk1mm7Le0VgW6ub6J2UWnTQ7/D23KXcPI1qy+0vBkgKgd38RCMJavBXpB83HPNFMTb0Fg==}
+  '@radix-ui/react-progress@1.1.10':
+    resolution: {integrity: sha512-JYzEg60lk79PwKM27WZyKd7PW8O4OM5jOaFfRPfOyeXmMw7tLJh5kSj+CEjVTehszuwml/AdCzPGMXBTGf4BBw==}
     peerDependencies:
       '@types/react': '*'
       '@types/react-dom': '*'
@@ -951,8 +951,8 @@ packages:
       '@types/react-dom':
         optional: true
 
-  '@radix-ui/react-progress@1.1.8':
-    resolution: {integrity: sha512-+gISHcSPUJ7ktBy9RnTqbdKW78bcGke3t6taawyZ71pio1JewwGSJizycs7rLhGTvMJYCQB1DBK4KQsxs7U8dA==}
+  '@radix-ui/react-progress@1.1.7':
+    resolution: {integrity: sha512-vPdg/tF6YC/ynuBIJlk1mm7Le0VgW6ub6J2UWnTQ7/D23KXcPI1qy+0vBkgKgd38RCMJavBXpB83HPNFMTb0Fg==}
     peerDependencies:
       '@types/react': '*'
       '@types/react-dom': '*'
@@ -3554,20 +3554,20 @@ snapshots:
       '@types/react': 18.3.28
       '@types/react-dom': 18.3.7(@types/react@18.3.28)
 
-  '@radix-ui/react-progress@1.1.7(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@radix-ui/react-progress@1.1.10(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@radix-ui/react-context': 1.1.2(@types/react@18.3.28)(react@18.3.1)
-      '@radix-ui/react-primitive': 2.1.3(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-context': 1.1.4(@types/react@18.3.28)(react@18.3.1)
+      '@radix-ui/react-primitive': 2.1.6(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
     optionalDependencies:
       '@types/react': 18.3.28
       '@types/react-dom': 18.3.7(@types/react@18.3.28)
 
-  '@radix-ui/react-progress@1.1.8(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@radix-ui/react-progress@1.1.7(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@radix-ui/react-context': 1.1.3(@types/react@18.3.28)(react@18.3.1)
-      '@radix-ui/react-primitive': 2.1.4(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-context': 1.1.2(@types/react@18.3.28)(react@18.3.1)
+      '@radix-ui/react-primitive': 2.1.3(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
     optionalDependencies:
