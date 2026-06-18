@@ -118,7 +118,7 @@ crossbeam = "0.8.4"
 dashmap = "6.2.1"
 
 # Directories
-dirs = "5.0.1"
+dirs = "6.0.0"
 
 # System monitoring for resource management
 sysinfo = "0.32"
