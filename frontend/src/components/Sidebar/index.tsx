@@ -680,7 +680,7 @@ const Sidebar: React.FC = () => {
           }`}
       >
         {/*  Header with traffic light spacing */}
-        <div className="flex-shrink-0 h-22 flex items-center">
+        <div className={`flex-shrink-0 flex items-center ${isCollapsed ? 'h-0' : 'h-22'}`}>
 
           {/* Title container */}
 
