@@ -593,7 +593,9 @@ impl WhisperEngine {
         let mut segment_count = 0;
 
         for i in 0..num_segments {
-            let Some(segment) = state.get_segment(i) else { continue };
+            let Some(segment) = state.get_segment(i) else {
+                continue;
+            };
             let segment_text = match segment.to_str_lossy() {
                 Ok(text) => text,
                 Err(_) => continue,
@@ -750,7 +752,9 @@ impl WhisperEngine {
         let mut result = String::new();
 
         for i in 0..num_segments {
-            let Some(segment) = state.get_segment(i) else { continue };
+            let Some(segment) = state.get_segment(i) else {
+                continue;
+            };
             let segment_text = match segment.to_str_lossy() {
                 Ok(text) => text,
                 Err(_) => continue,

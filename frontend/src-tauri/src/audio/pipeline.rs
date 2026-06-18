@@ -697,7 +697,6 @@ impl AudioPipeline {
     pub fn new(
         receiver: mpsc::UnboundedReceiver<AudioChunk>,
         transcription_sender: mpsc::UnboundedSender<AudioChunk>,
-        _state: Arc<RecordingState>,
         target_chunk_duration_ms: u32,
         sample_rate: u32,
         mic_device_name: String,
@@ -978,7 +977,6 @@ impl AudioPipelineManager {
         let mut pipeline = AudioPipeline::new(
             audio_receiver,
             transcription_sender,
-            state.clone(),
             target_chunk_duration_ms,
             sample_rate,
             mic_device_name,

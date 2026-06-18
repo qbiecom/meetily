@@ -119,7 +119,9 @@ pub async fn load_recording_preferences<R: Runtime>(
                     p
                 }
                 #[cfg(not(target_os = "macos"))]
-                p
+                {
+                    p
+                }
             }
             Err(e) => {
                 warn!("Failed to deserialize preferences: {}, using defaults", e);
