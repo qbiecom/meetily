@@ -1,6 +1,9 @@
 allowBuilds:
   sharp: set this to true or false
 
+minimumReleaseAgeExclude:
+  - lucide-react@1.21.0
+
 overrides:
   prosemirror-model: 1.25.3
   prosemirror-state: 1.4.3

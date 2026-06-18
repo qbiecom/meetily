@@ -1,4 +1,4 @@
-use posthog_rs::{Client, Event};
+use posthog_rs::{Client, ClientOptionsBuilder, Event};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -85,7 +85,20 @@ pub struct AnalyticsClient {
 impl AnalyticsClient {
     pub async fn new(config: AnalyticsConfig) -> Self {
         let client = if config.enabled && !config.api_key.is_empty() {
-            Some(Arc::new(posthog_rs::client(config.api_key.as_str()).await))
+            let mut options = ClientOptionsBuilder::default();
+            options.api_key(config.api_key.clone());
+
+            if let Some(host) = config.host.as_deref() {
+                options.host(host);
+            }
+
+            match options.build() {
+                Ok(options) => Some(Arc::new(posthog_rs::client(options).await)),
+                Err(error) => {
+                    log::warn!("Failed to configure PostHog client: {}", error);
+                    None
+                }
+            }
         } else {
             None
         };
