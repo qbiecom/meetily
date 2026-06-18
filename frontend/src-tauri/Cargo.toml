@@ -126,7 +126,8 @@ sysinfo = "0.32"
 lazy_static = { version = "1.4.0" }
 realfft = "3.4.0"
 regex = "1.12.4"
-ndarray = "0.16"
+ndarray = "0.17.2"
+ndarray16 = { package = "ndarray", version = "0.16.1" }
 
 symphonia = { version = "0.5.4", features = ["aac", "isomp4", "mp3", "flac", "ogg", "vorbis", "pcm", "wav", "opt-simd"] }
 rayon = "1.10"
