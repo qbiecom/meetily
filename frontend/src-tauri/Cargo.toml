@@ -79,7 +79,7 @@ cpal = "0.15.3"
 # hound = "3.5"
 
 # Dates
-chrono = { version = "0.4.31", features = ["serde"] }
+chrono = { version = "0.4.45", features = ["serde"] }
 
 # Log
 log = "0.4"
