@@ -77,3 +77,4 @@ experiments/
 target/
 
 frontend/src-tauri/binaries/
+frontend/src-tauri/vulkan-runtime/vulkan-1.dll
