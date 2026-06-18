@@ -1,4 +1,4 @@
-use ndarray::{Array, Array1, Array2, Array3, ArrayD, ArrayViewD, IxDyn};
+use ndarray16::{Array, Array1, Array2, Array3, ArrayD, ArrayViewD, IxDyn};
 use once_cell::sync::Lazy;
 use ort::execution_providers::CPUExecutionProvider;
 use ort::inputs;
@@ -34,7 +34,7 @@ pub enum ParakeetError {
     #[error("I/O error")]
     Io(#[from] std::io::Error),
     #[error("ndarray shape error")]
-    Shape(#[from] ndarray::ShapeError),
+    Shape(#[from] ndarray16::ShapeError),
     #[error("Model input not found: {0}")]
     InputNotFound(String),
     #[error("Model output not found: {0}")]
@@ -276,8 +276,8 @@ impl ParakeetModel {
         // Prepare inputs matching Python: encoder_out[None, :, None] -> [1, time_steps, 1]
         let encoder_outputs = encoder_out
             .to_owned()
-            .insert_axis(ndarray::Axis(0))
-            .insert_axis(ndarray::Axis(2));
+            .insert_axis(ndarray16::Axis(0))
+            .insert_axis(ndarray16::Axis(2));
         let targets = Array2::from_shape_vec((1, 1), vec![target_token])?;
         let target_length = Array1::from_vec(vec![1]);
 
@@ -310,11 +310,11 @@ impl ParakeetModel {
             .try_extract_array()?;
 
         // Squeeze outputs like Python (remove batch dimension)
-        let logits = logits.remove_axis(ndarray::Axis(0));
+        let logits = logits.remove_axis(ndarray16::Axis(0));
 
         // Convert ArrayD back to Array3 to match expected return type
-        let state1_3d = state1.to_owned().into_dimensionality::<ndarray::Ix3>()?;
-        let state2_3d = state2.to_owned().into_dimensionality::<ndarray::Ix3>()?;
+        let state1_3d = state1.to_owned().into_dimensionality::<ndarray16::Ix3>()?;
+        let state2_3d = state2.to_owned().into_dimensionality::<ndarray16::Ix3>()?;
 
         Ok((logits.to_owned(), (state1_3d, state2_3d)))
     }
@@ -354,7 +354,7 @@ impl ParakeetModel {
         let mut emitted_tokens = 0;
 
         while t < encodings_len {
-            let encoder_step = encodings.slice(ndarray::s![t, ..]);
+            let encoder_step = encodings.slice(ndarray16::s![t, ..]);
             // Convert to dynamic dimension to match decode_step parameter type
             let encoder_step_dyn = encoder_step.to_owned().into_dyn();
             let (probs, new_state) =
@@ -364,8 +364,8 @@ impl ParakeetModel {
             // output[:vocab_size] = vocabulary logits
             // output[vocab_size:] = duration logits
             let vocab_logits_slice = probs.as_slice().ok_or_else(|| {
-                ParakeetError::Shape(ndarray::ShapeError::from_kind(
-                    ndarray::ErrorKind::IncompatibleShape,
+                ParakeetError::Shape(ndarray16::ShapeError::from_kind(
+                    ndarray16::ErrorKind::IncompatibleShape,
                 ))
             })?;
 

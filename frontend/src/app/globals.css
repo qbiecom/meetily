@@ -181,6 +181,7 @@
   }
 
   /* BlockNote Editor - Override fixed dimensions for responsive layout */
+  .bn-root,
   .bn-container {
     width: 100% !important;
     max-width: none !important;

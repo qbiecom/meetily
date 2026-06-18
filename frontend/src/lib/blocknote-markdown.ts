@@ -1,7 +1,7 @@
 import type { Block } from "@blocknote/core";
 
 interface MarkdownCapableEditor {
-  blocksToMarkdownLossy: (blocks: Block[]) => Promise<string>;
+  blocksToMarkdownLossy: (blocks: Block[]) => string | Promise<string>;
 }
 
 interface MarkdownConversionOptions {

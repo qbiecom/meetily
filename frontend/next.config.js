@@ -2,6 +2,9 @@ const path = require('path');
 const tiptapPmResolveBase = path.dirname(require.resolve('@tiptap/pm/model'));
 const resolveFromTiptapPm = (pkg) =>
   require.resolve(pkg, { paths: [tiptapPmResolveBase] });
+const blockNoteCoreRoot = path.dirname(path.dirname(require.resolve('@blocknote/core')));
+const resolveFromBlockNoteCore = (pkg) =>
+  path.join(path.dirname(path.dirname(blockNoteCoreRoot)), pkg);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -30,6 +33,7 @@ const nextConfig = {
         '@blocknote/core$': require.resolve('@blocknote/core'),
         '@blocknote/react$': require.resolve('@blocknote/react'),
         '@blocknote/shadcn$': require.resolve('@blocknote/shadcn'),
+        '@handlewithcare/prosemirror-inputrules$': resolveFromBlockNoteCore('@handlewithcare/prosemirror-inputrules/dist/index.js'),
         'prosemirror-model': resolveFromTiptapPm('prosemirror-model'),
         'prosemirror-state': resolveFromTiptapPm('prosemirror-state'),
         'prosemirror-view': resolveFromTiptapPm('prosemirror-view'),
