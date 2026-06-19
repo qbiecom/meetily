@@ -6,15 +6,147 @@
 // progress emitted as Tauri events.
 
 use futures_util::StreamExt;
+use serde::Serialize;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
-/// WeSpeaker CAM++ speaker-embedding model (Apache-2.0, exported to ONNX by
-/// the sherpa-onnx project). ~28 MB. Input: fbank [1, T, 80]; output: [1, 192].
+use super::clustering::{DEFAULT_MAX_ANONYMOUS_SPEAKERS, SpeakerClusteringConfig};
+use super::session::{DEFAULT_MIN_RELIABLE_SEGMENT_MS, DiarizationSessionConfig};
+
 /// NOTE: "recongition" is the canonical (misspelled) sherpa-onnx release tag.
-pub const EMBEDDING_MODEL_FILENAME: &str = "wespeaker_en_voxceleb_CAM++.onnx";
-pub const EMBEDDING_MODEL_URL: &str =
-    "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_CAM%2B%2B.onnx";
+pub const DEFAULT_EMBEDDING_MODEL_ID: &str = "3dspeaker-eres2net-en";
+
+/// Legacy WeSpeaker CAM++ speaker-embedding model retained for existing users.
+pub const LEGACY_EMBEDDING_MODEL_ID: &str = "wespeaker-campp";
+
+/// Imports can legitimately contain larger groups. Keep live conservative, but
+/// do not force batch audio with many speakers into two anonymous clusters.
+pub const DEFAULT_IMPORT_MAX_ANONYMOUS_SPEAKERS: usize = 8;
+
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct EmbeddingModelInfo {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub description: &'static str,
+    pub filename: &'static str,
+    pub url: &'static str,
+    pub size_mb: u32,
+    pub recommended: bool,
+    pub legacy: bool,
+    pub embedding_dimension: usize,
+    pub cluster_similarity_threshold: f32,
+    pub profile_match_threshold: f32,
+    pub live_max_anonymous_speakers: usize,
+    pub import_max_anonymous_speakers: usize,
+    pub min_reliable_segment_ms: u32,
+    pub default_import_vad_redemption_ms: u32,
+}
+
+pub const EMBEDDING_MODELS: &[EmbeddingModelInfo] = &[
+    EmbeddingModelInfo {
+        id: "3dspeaker-eres2net-en",
+        name: "3D-Speaker ERes2Net English",
+        description: "Recommended newer English speaker embedding model from 3D-Speaker.",
+        filename: "3dspeaker_speech_eres2net_sv_en_voxceleb_16k.onnx",
+        url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_sv_en_voxceleb_16k.onnx",
+        size_mb: 26,
+        recommended: true,
+        legacy: false,
+        embedding_dimension: 192,
+        cluster_similarity_threshold: 0.55,
+        profile_match_threshold: 0.60,
+        live_max_anonymous_speakers: DEFAULT_MAX_ANONYMOUS_SPEAKERS,
+        import_max_anonymous_speakers: DEFAULT_IMPORT_MAX_ANONYMOUS_SPEAKERS,
+        min_reliable_segment_ms: DEFAULT_MIN_RELIABLE_SEGMENT_MS,
+        default_import_vad_redemption_ms: 400,
+    },
+    EmbeddingModelInfo {
+        id: "3dspeaker-campp-en",
+        name: "3D-Speaker CAM++ English",
+        description: "Newer CAM++ English speaker embedding model from 3D-Speaker.",
+        filename: "3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx",
+        url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx",
+        size_mb: 30,
+        recommended: false,
+        legacy: false,
+        embedding_dimension: 192,
+        cluster_similarity_threshold: 0.55,
+        profile_match_threshold: 0.60,
+        live_max_anonymous_speakers: DEFAULT_MAX_ANONYMOUS_SPEAKERS,
+        import_max_anonymous_speakers: DEFAULT_IMPORT_MAX_ANONYMOUS_SPEAKERS,
+        min_reliable_segment_ms: DEFAULT_MIN_RELIABLE_SEGMENT_MS,
+        default_import_vad_redemption_ms: 400,
+    },
+    EmbeddingModelInfo {
+        id: LEGACY_EMBEDDING_MODEL_ID,
+        name: "WeSpeaker CAM++ English (legacy)",
+        description: "Original Meetily speaker embedding model.",
+        filename: "wespeaker_en_voxceleb_CAM++.onnx",
+        url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_CAM%2B%2B.onnx",
+        size_mb: 28,
+        recommended: false,
+        legacy: true,
+        embedding_dimension: 192,
+        cluster_similarity_threshold: 0.55,
+        profile_match_threshold: 0.60,
+        live_max_anonymous_speakers: DEFAULT_MAX_ANONYMOUS_SPEAKERS,
+        import_max_anonymous_speakers: DEFAULT_IMPORT_MAX_ANONYMOUS_SPEAKERS,
+        min_reliable_segment_ms: DEFAULT_MIN_RELIABLE_SEGMENT_MS,
+        default_import_vad_redemption_ms: 400,
+    },
+];
+
+pub fn embedding_models() -> &'static [EmbeddingModelInfo] {
+    EMBEDDING_MODELS
+}
+
+pub fn embedding_model_by_id(model_id: &str) -> Option<&'static EmbeddingModelInfo> {
+    EMBEDDING_MODELS.iter().find(|model| model.id == model_id)
+}
+
+pub fn valid_or_default_model_id(model_id: Option<&str>) -> &'static str {
+    model_id
+        .and_then(embedding_model_by_id)
+        .map(|model| model.id)
+        .unwrap_or(DEFAULT_EMBEDDING_MODEL_ID)
+}
+
+pub fn session_config_for_model_id(model_id: &str) -> DiarizationSessionConfig {
+    let model = embedding_model_by_id(model_id)
+        .or_else(|| embedding_model_by_id(DEFAULT_EMBEDDING_MODEL_ID))
+        .expect("default diarization model must be registered");
+
+    session_config_for_model(model, model.live_max_anonymous_speakers)
+}
+
+pub fn import_session_config_for_model_id(model_id: &str) -> DiarizationSessionConfig {
+    let model = embedding_model_by_id(model_id)
+        .or_else(|| embedding_model_by_id(DEFAULT_EMBEDDING_MODEL_ID))
+        .expect("default diarization model must be registered");
+
+    session_config_for_model(model, model.import_max_anonymous_speakers)
+}
+
+fn session_config_for_model(
+    model: &EmbeddingModelInfo,
+    max_anonymous_speakers: usize,
+) -> DiarizationSessionConfig {
+    DiarizationSessionConfig {
+        clustering: SpeakerClusteringConfig {
+            cluster_similarity_threshold: model.cluster_similarity_threshold,
+            profile_match_threshold: model.profile_match_threshold,
+            max_anonymous_speakers,
+        },
+        min_reliable_segment_ms: model.min_reliable_segment_ms,
+    }
+}
+
+pub fn default_import_vad_redemption_ms_for_model_id(model_id: &str) -> u32 {
+    embedding_model_by_id(model_id)
+        .or_else(|| embedding_model_by_id(DEFAULT_EMBEDDING_MODEL_ID))
+        .map(|model| model.default_import_vad_redemption_ms)
+        .unwrap_or(400)
+}
 
 pub fn models_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     let app_data_dir = app
@@ -25,32 +157,62 @@ pub fn models_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
 }
 
 pub fn embedding_model_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
-    Ok(models_dir(app)?.join(EMBEDDING_MODEL_FILENAME))
+    embedding_model_path_for_id(app, DEFAULT_EMBEDDING_MODEL_ID)
+}
+
+pub fn embedding_model_path_for_id<R: Runtime>(
+    app: &AppHandle<R>,
+    model_id: &str,
+) -> Result<PathBuf, String> {
+    let model = embedding_model_by_id(model_id)
+        .ok_or_else(|| format!("Unknown diarization model: {}", model_id))?;
+    Ok(models_dir(app)?.join(model.filename))
 }
 
 pub fn is_embedding_model_present<R: Runtime>(app: &AppHandle<R>) -> bool {
-    embedding_model_path(app)
-        .map(|p| p.exists() && std::fs::metadata(&p).map(|m| m.len() > 1_000_000).unwrap_or(false))
+    is_embedding_model_present_for_id(app, DEFAULT_EMBEDDING_MODEL_ID)
+}
+
+pub fn is_embedding_model_present_for_id<R: Runtime>(app: &AppHandle<R>, model_id: &str) -> bool {
+    embedding_model_path_for_id(app, model_id)
+        .map(|p| {
+            p.exists()
+                && std::fs::metadata(&p)
+                    .map(|m| m.len() > 1_000_000)
+                    .unwrap_or(false)
+        })
         .unwrap_or(false)
 }
 
 /// Download the embedding model, emitting `diarization-model-download-progress`
 /// events with { downloaded_bytes, total_bytes, percent }.
 pub async fn download_embedding_model<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    download_embedding_model_for_id(app, DEFAULT_EMBEDDING_MODEL_ID).await
+}
+
+pub async fn download_embedding_model_for_id<R: Runtime>(
+    app: &AppHandle<R>,
+    model_id: &str,
+) -> Result<(), String> {
+    let model = embedding_model_by_id(model_id)
+        .ok_or_else(|| format!("Unknown diarization model: {}", model_id))?;
     let dir = models_dir(app)?;
     std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create models dir: {}", e))?;
 
-    let final_path = dir.join(EMBEDDING_MODEL_FILENAME);
-    if is_embedding_model_present(app) {
-        log::info!("Diarization embedding model already present at {}", final_path.display());
+    let final_path = dir.join(model.filename);
+    if is_embedding_model_present_for_id(app, model.id) {
+        log::info!(
+            "Diarization embedding model already present at {}",
+            final_path.display()
+        );
         return Ok(());
     }
-    let tmp_path = dir.join(format!("{}.tmp", EMBEDDING_MODEL_FILENAME));
+    let tmp_path = dir.join(format!("{}.tmp", model.filename));
 
-    log::info!("Downloading diarization embedding model from {}", EMBEDDING_MODEL_URL);
+    log::info!("Downloading diarization embedding model from {}", model.url);
     let client = reqwest::Client::new();
     let response = client
-        .get(EMBEDDING_MODEL_URL)
+        .get(model.url)
         .send()
         .await
         .map_err(|e| format!("Download request failed: {}", e))?;

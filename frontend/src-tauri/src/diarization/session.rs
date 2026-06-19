@@ -4,7 +4,7 @@
 // Created when a recording starts (if the feature is enabled and the model
 // is present) and dropped when it ends.
 
-use super::clustering::SpeakerClusterer;
+use super::clustering::{SpeakerClusterer, SpeakerClusteringConfig};
 use super::embedding::{EmbeddingError, EmbeddingExtractor};
 use super::timeline::{RollingDiarizationBuffer, SpeakerTimeline, SpeakerTimelineSegment};
 use std::path::Path;
@@ -16,6 +16,25 @@ const DEFAULT_DIARIZATION_WINDOW_SECONDS: f64 = 10.0;
 const DEFAULT_DIARIZATION_STRIDE_SECONDS: f64 = 5.0;
 const DIARIZATION_SAMPLE_RATE: u32 = 16_000;
 
+pub const DEFAULT_MIN_RELIABLE_SEGMENT_MS: u32 =
+    (MIN_SAMPLES_FOR_EMBEDDING as u32 * 1000) / DIARIZATION_SAMPLE_RATE;
+
+#[derive(Debug, Clone, Copy)]
+pub struct DiarizationSessionConfig {
+    pub clustering: SpeakerClusteringConfig,
+    pub min_reliable_segment_ms: u32,
+}
+
+impl Default for DiarizationSessionConfig {
+    fn default() -> Self {
+        Self {
+            clustering: SpeakerClusteringConfig::default(),
+            min_reliable_segment_ms: DEFAULT_MIN_RELIABLE_SEGMENT_MS,
+        }
+    }
+}
+
+#[cfg(test)]
 fn has_enough_samples_for_embedding(samples_len: usize) -> bool {
     samples_len >= MIN_SAMPLES_FOR_EMBEDDING
 }
@@ -28,8 +47,15 @@ fn select_live_speaker_label(
     direct_segment_label.or(timeline_label).or(last_label)
 }
 
+#[cfg(test)]
 fn should_compute_direct_segment_label(samples_len: usize) -> bool {
     has_enough_samples_for_embedding(samples_len)
+}
+
+fn has_enough_samples_for_reliable_segment(samples_len: usize, min_segment_ms: u32) -> bool {
+    let min_samples = ((min_segment_ms as usize) * DIARIZATION_SAMPLE_RATE as usize / 1000)
+        .max(MIN_SAMPLES_FOR_EMBEDDING);
+    samples_len >= min_samples
 }
 
 pub struct DiarizationSession {
@@ -37,6 +63,7 @@ pub struct DiarizationSession {
     clusterer: SpeakerClusterer,
     rolling_buffer: RollingDiarizationBuffer,
     speaker_timeline: SpeakerTimeline,
+    config: DiarizationSessionConfig,
 }
 
 impl DiarizationSession {
@@ -50,7 +77,19 @@ impl DiarizationSession {
         embedding_model_path: &Path,
         profiles: Vec<(String, Vec<f32>)>,
     ) -> Result<Self, EmbeddingError> {
-        let mut clusterer = SpeakerClusterer::new();
+        Self::with_profiles_and_config(
+            embedding_model_path,
+            profiles,
+            DiarizationSessionConfig::default(),
+        )
+    }
+
+    pub fn with_profiles_and_config(
+        embedding_model_path: &Path,
+        profiles: Vec<(String, Vec<f32>)>,
+        config: DiarizationSessionConfig,
+    ) -> Result<Self, EmbeddingError> {
+        let mut clusterer = SpeakerClusterer::with_config(config.clustering);
         for (name, centroid) in profiles {
             clusterer.seed_profile(&name, centroid);
         }
@@ -63,6 +102,7 @@ impl DiarizationSession {
                 DEFAULT_DIARIZATION_STRIDE_SECONDS,
             ),
             speaker_timeline: SpeakerTimeline::new(),
+            config,
         })
     }
 
@@ -80,7 +120,10 @@ impl DiarizationSession {
     /// is too short). Diarization failures must never break transcription —
     /// errors are logged and degrade to the previous label or None.
     pub fn label_segment(&mut self, samples_16k: &[f32]) -> Option<String> {
-        if !has_enough_samples_for_embedding(samples_16k.len()) {
+        if !has_enough_samples_for_reliable_segment(
+            samples_16k.len(),
+            self.config.min_reliable_segment_ms,
+        ) {
             return self.clusterer.last_label();
         }
         match self.extractor.compute(samples_16k) {
@@ -103,7 +146,10 @@ impl DiarizationSession {
         let end_time = start_time + duration;
 
         for window in self.rolling_buffer.push_samples_at(start_time, samples_16k) {
-            if !has_enough_samples_for_embedding(window.samples.len()) {
+            if !has_enough_samples_for_reliable_segment(
+                window.samples.len(),
+                self.config.min_reliable_segment_ms,
+            ) {
                 continue;
             }
 
@@ -129,7 +175,10 @@ impl DiarizationSession {
             .speaker_timeline
             .speaker_label_for_range(start_time, end_time);
 
-        let direct_segment_label = if should_compute_direct_segment_label(samples_16k.len()) {
+        let direct_segment_label = if has_enough_samples_for_reliable_segment(
+            samples_16k.len(),
+            self.config.min_reliable_segment_ms,
+        ) {
             self.label_segment(samples_16k)
         } else {
             None
@@ -140,6 +189,47 @@ impl DiarizationSession {
             direct_segment_label,
             self.clusterer.last_label(),
         )
+    }
+
+    /// Assign a speaker label to an already-segmented speech range, without the
+    /// live rolling window. Batch import has complete VAD segments; using the
+    /// live 10s window can mix alternating speakers into one embedding.
+    pub fn label_discrete_segment_at(
+        &mut self,
+        start_time: f64,
+        samples_16k: &[f32],
+    ) -> Option<String> {
+        let duration = samples_16k.len() as f64 / DIARIZATION_SAMPLE_RATE as f64;
+        let end_time = start_time + duration;
+
+        if !has_enough_samples_for_reliable_segment(
+            samples_16k.len(),
+            self.config.min_reliable_segment_ms,
+        ) {
+            return self.clusterer.last_label();
+        }
+
+        match self.extractor.compute(samples_16k) {
+            Ok(embedding) => {
+                let label = self.clusterer.assign(&embedding);
+                self.speaker_timeline
+                    .push_window_segment(SpeakerTimelineSegment {
+                        start_time,
+                        end_time,
+                        speaker_ids: vec![label.clone()],
+                        confidence: 0.8,
+                        overlap: false,
+                    });
+                Some(label)
+            }
+            Err(e) => {
+                log::warn!(
+                    "Diarization segment embedding failed, carrying previous label: {}",
+                    e
+                );
+                self.clusterer.last_label()
+            }
+        }
     }
 
     pub fn timeline_snapshot(&self) -> Vec<SpeakerTimelineSegment> {

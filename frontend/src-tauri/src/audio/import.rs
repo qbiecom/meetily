@@ -4,21 +4,26 @@ use crate::api::TranscriptSegment;
 use crate::audio::decoder::{decode_audio_file, decode_audio_file_with_progress};
 use crate::audio::vad::get_speech_chunks_with_progress;
 use crate::config::{DEFAULT_PARAKEET_MODEL, DEFAULT_WHISPER_MODEL};
+use crate::diarization::overlap_detector::{
+    AttributionSource, OverlapDetector, OverlapStatus, detect_overlap_regions_from_timeline,
+    find_overlap_region_for_range,
+};
 use crate::parakeet_engine::ParakeetEngine;
 use crate::state::AppState;
 use crate::whisper_engine::WhisperEngine;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_dialog::DialogExt;
 use uuid::Uuid;
 
 use super::audio_processing::create_meeting_folder;
-use super::common::{create_transcript_segments, split_segment_at_silence, write_transcripts_json};
+use super::common::{split_segment_at_silence, write_transcripts_json};
 use super::constants::AUDIO_EXTENSIONS;
 use super::recording_preferences::get_default_recordings_folder;
 
@@ -51,11 +56,9 @@ impl Drop for ImportGuard {
     }
 }
 
-/// VAD redemption time in milliseconds - bridges natural pauses in speech
-/// Batch processing needs longer redemption (2000ms) than live pipeline (400ms)
-/// because the entire file is processed at once by VAD, and 400ms fragments
-/// speech at every natural sentence/topic pause (500ms-2s)
-const VAD_REDEMPTION_TIME_MS: u32 = 2000;
+/// Default import VAD redemption in milliseconds. Batch transcription normally
+/// benefits from a longer redemption window to avoid sentence fragmentation.
+const DEFAULT_IMPORT_VAD_REDEMPTION_TIME_MS: u32 = 2000;
 
 /// Maximum file size: 20GB (prevents OOM and excessive processing time)
 const MAX_FILE_SIZE_BYTES: u64 = 20 * 1024 * 1024 * 1024; // 20GB
@@ -98,6 +101,16 @@ pub struct ImportError {
 pub struct ImportWarning {
     pub warning: String,
     pub details: Option<String>,
+}
+
+struct PersistedOverlapRegion {
+    id: String,
+    start_ms: u64,
+    end_ms: u64,
+    speaker_ids_json: String,
+    confidence: Option<f32>,
+    estimated_speaker_count: usize,
+    status: String,
 }
 
 /// Response when import is started
@@ -412,13 +425,26 @@ async fn run_import<R: Runtime>(
         return Err(anyhow!("Import cancelled"));
     }
 
-    // Use VAD to find speech segments
+    // Use VAD to find speech segments. When diarization can run, prefer the
+    // live-pipeline redemption window so turns split before speaker labeling.
+    let diarization_model_id = ready_import_diarization_model_id(&app).await;
+    let vad_redemption_time_ms = if let Some(model_id) = diarization_model_id.as_deref() {
+        crate::diarization::models::default_import_vad_redemption_ms_for_model_id(model_id)
+    } else {
+        DEFAULT_IMPORT_VAD_REDEMPTION_TIME_MS
+    };
+    info!(
+        "Import VAD redemption_time={}ms (diarization_ready={})",
+        vad_redemption_time_ms,
+        diarization_model_id.is_some()
+    );
+
     let app_for_vad = app.clone();
 
     let speech_segments = tokio::task::spawn_blocking(move || {
         get_speech_chunks_with_progress(
             &audio_samples,
-            VAD_REDEMPTION_TIME_MS,
+            vad_redemption_time_ms,
             |vad_progress, segments_found| {
                 let overall_progress = 25 + (vad_progress as f32 * 0.05) as u32;
                 emit_progress(
@@ -441,7 +467,7 @@ async fn run_import<R: Runtime>(
     let total_segments = speech_segments.len();
     info!(
         "VAD detected {} speech segments (redemption_time={}ms)",
-        total_segments, VAD_REDEMPTION_TIME_MS
+        total_segments, vad_redemption_time_ms
     );
 
     // Diagnostic: log segment duration distribution
@@ -459,8 +485,11 @@ async fn run_import<R: Runtime>(
             .fold(f64::NEG_INFINITY, f64::max);
         info!(
             "VAD segment stats: avg={:.0}ms, min={:.0}ms, max={:.0}ms, total_speech={:.1}s/{:.1}s ({:.0}%)",
-            avg_duration, min_duration, max_duration,
-            total_speech_ms / 1000.0, duration_seconds,
+            avg_duration,
+            min_duration,
+            max_duration,
+            total_speech_ms / 1000.0,
+            duration_seconds,
             (total_speech_ms / 1000.0 / duration_seconds) * 100.0
         );
         // Log first 10 segments for detailed inspection
@@ -518,6 +547,14 @@ async fn run_import<R: Runtime>(
         None
     };
 
+    // Import uses the same on-device diarization session as live recording.
+    // Failure only disables speaker labels; transcription/import still succeeds.
+    let mut diarization_session = if total_segments > 0 {
+        init_import_diarization_session(&app).await
+    } else {
+        None
+    };
+
     // Split very long segments at silence boundaries for better transcription quality.
     // Hard cuts at arbitrary sample positions lose words at boundaries. Instead, scan
     // for the lowest-energy window near the target split point and cut there.
@@ -547,7 +584,7 @@ async fn run_import<R: Runtime>(
     );
 
     // Process each speech segment
-    let mut all_transcripts: Vec<(String, f64, f64)> = Vec::new();
+    let mut segments: Vec<TranscriptSegment> = Vec::new();
     let mut total_confidence = 0.0f32;
 
     for (i, segment) in processable_segments.iter().enumerate() {
@@ -615,7 +652,64 @@ async fn run_import<R: Runtime>(
                     trimmed
                 }
             );
-            all_transcripts.push((text, segment.start_timestamp_ms, segment.end_timestamp_ms));
+            let audio_start_time = segment.start_timestamp_ms / 1000.0;
+            let audio_end_time = segment.end_timestamp_ms / 1000.0;
+            let duration = audio_end_time - audio_start_time;
+
+            let (speaker, overlap_region) = if let Some(session) = diarization_session.as_mut() {
+                let speaker = session.label_discrete_segment_at(audio_start_time, &segment.samples);
+                let regions = detect_overlap_regions_from_timeline(
+                    &session.timeline_snapshot(),
+                    &OverlapDetector::default(),
+                );
+                let overlap_region = find_overlap_region_for_range(
+                    &regions,
+                    seconds_to_ms(audio_start_time),
+                    seconds_to_ms(audio_end_time),
+                )
+                .cloned();
+                (speaker, overlap_region)
+            } else {
+                (None, None)
+            };
+
+            let (speaker, attribution_source) = if overlap_region.is_some() {
+                (None, AttributionSource::OverlapDetectedAmbiguous)
+            } else {
+                (speaker, AttributionSource::NormalDiarization)
+            };
+
+            debug!(
+                "Import diarization for segment {}: speaker={:?}, overlap_region={:?}",
+                i + 1,
+                speaker,
+                overlap_region.as_ref().map(|region| &region.id)
+            );
+
+            segments.push(TranscriptSegment {
+                id: format!("transcript-{}", Uuid::new_v4()),
+                text: trimmed.to_string(),
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                audio_start_time: Some(audio_start_time),
+                audio_end_time: Some(audio_end_time),
+                duration: Some(duration),
+                speaker,
+                attribution_source: Some(attribution_source),
+                overlap_region_id: overlap_region.as_ref().map(|region| region.id.clone()),
+                overlap_speaker_ids: overlap_region
+                    .as_ref()
+                    .map(|region| region.speaker_ids.clone()),
+                overlap_start_time: overlap_region
+                    .as_ref()
+                    .map(|region| region.start_ms as f64 / 1000.0),
+                overlap_end_time: overlap_region
+                    .as_ref()
+                    .map(|region| region.end_ms as f64 / 1000.0),
+                overlap_confidence: overlap_region.as_ref().map(|region| region.confidence),
+                overlap_status: overlap_region
+                    .as_ref()
+                    .map(|_| OverlapStatus::MarkedAmbiguous),
+            });
             total_confidence += conf;
         } else {
             debug!(
@@ -627,7 +721,7 @@ async fn run_import<R: Runtime>(
         }
     }
 
-    let transcribed_count = all_transcripts.len();
+    let transcribed_count = segments.len();
     let avg_confidence = if transcribed_count > 0 {
         total_confidence / transcribed_count as f32
     } else {
@@ -647,9 +741,6 @@ async fn run_import<R: Runtime>(
 
     emit_progress(&app, "saving", 85, "Creating meeting...");
 
-    // Create transcript segments
-    let segments = create_transcript_segments(&all_transcripts);
-
     // Save to database
     let app_state = app
         .try_state::<AppState>()
@@ -662,6 +753,10 @@ async fn run_import<R: Runtime>(
         meeting_folder.to_string_lossy().to_string(),
     )
     .await?;
+
+    if let Some(session) = diarization_session.as_ref() {
+        persist_import_speaker_centroids(session, &meeting_folder).await;
+    }
 
     // Write transcripts.json and metadata.json to the meeting folder
     emit_progress(&app, "saving", 90, "Writing transcript files...");
@@ -703,6 +798,137 @@ fn emit_progress<R: Runtime>(app: &AppHandle<R>, stage: &str, progress: u32, mes
     );
 }
 
+async fn ready_import_diarization_model_id<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
+    let (enabled, selected_model_id) = match app.try_state::<AppState>() {
+        Some(state) => (
+            crate::diarization::commands::is_enabled(state.db_manager.pool()).await,
+            crate::diarization::commands::selected_model_id(state.db_manager.pool()).await,
+        ),
+        None => (
+            false,
+            crate::diarization::models::DEFAULT_EMBEDDING_MODEL_ID.to_string(),
+        ),
+    };
+
+    if enabled
+        && crate::diarization::models::is_embedding_model_present_for_id(app, &selected_model_id)
+    {
+        Some(selected_model_id)
+    } else {
+        None
+    }
+}
+
+/// Create an import-time diarization session when the feature is enabled and
+/// the speaker embedding model is present. Any failure degrades to unlabeled
+/// imported transcripts so the import itself is never blocked.
+async fn init_import_diarization_session<R: Runtime>(
+    app: &AppHandle<R>,
+) -> Option<crate::diarization::DiarizationSession> {
+    if ready_import_diarization_model_id(app).await.is_none() {
+        warn!(
+            "🎙️ Speaker identification unavailable for imported audio - imported labels disabled"
+        );
+        return None;
+    }
+
+    let selected_model_id = match app.try_state::<AppState>() {
+        Some(state) => {
+            crate::diarization::commands::selected_model_id(state.db_manager.pool()).await
+        }
+        None => crate::diarization::models::DEFAULT_EMBEDDING_MODEL_ID.to_string(),
+    };
+
+    let model_path =
+        match crate::diarization::models::embedding_model_path_for_id(app, &selected_model_id) {
+            Ok(path) => path,
+            Err(e) => {
+                warn!(
+                    "🎙️ Could not resolve diarization model path for import: {}",
+                    e
+                );
+                return None;
+            }
+        };
+
+    let profiles = match app.try_state::<AppState>() {
+        Some(state) => {
+            match crate::database::repositories::speaker_profile::SpeakerProfilesRepository::list(
+                state.db_manager.pool(),
+            )
+            .await
+            {
+                Ok(profiles) => profiles
+                    .into_iter()
+                    .map(|profile| (profile.name, profile.embedding))
+                    .collect(),
+                Err(e) => {
+                    warn!(
+                        "🎙️ Failed to load voice profiles for import, continuing without: {}",
+                        e
+                    );
+                    Vec::new()
+                }
+            }
+        }
+        None => Vec::new(),
+    };
+    let profile_count = profiles.len();
+
+    let session_config =
+        crate::diarization::models::import_session_config_for_model_id(&selected_model_id);
+    match crate::diarization::DiarizationSession::with_profiles_and_config(
+        &model_path,
+        profiles,
+        session_config,
+    ) {
+        Ok(session) => {
+            info!(
+                "🎙️ ✅ Speaker identification active for imported audio ({} saved profile{})",
+                profile_count,
+                if profile_count == 1 { "" } else { "s" }
+            );
+            Some(session)
+        }
+        Err(e) => {
+            warn!(
+                "🎙️ Failed to initialize import speaker identification: {}",
+                e
+            );
+            None
+        }
+    }
+}
+
+async fn persist_import_speaker_centroids(
+    session: &crate::diarization::DiarizationSession,
+    folder: &Path,
+) {
+    let snapshot = session.centroid_snapshot();
+    let timeline = session.timeline_snapshot();
+    if snapshot.is_empty() && timeline.is_empty() {
+        return;
+    }
+
+    let json = serde_json::json!({
+        "version": "1.0",
+        "speakers": snapshot.iter().map(|(label, centroid, count)| {
+            serde_json::json!({ "label": label, "centroid": centroid, "segments": count })
+        }).collect::<Vec<_>>(),
+        "timeline": timeline,
+    });
+    let path = folder.join("speakers.json");
+    match serde_json::to_string(&json).map(|content| std::fs::write(&path, content)) {
+        Ok(Ok(())) => info!(
+            "🎙️ Saved {} imported speaker centroid(s) to {}",
+            snapshot.len(),
+            path.display()
+        ),
+        Ok(Err(e)) => warn!("🎙️ Failed to write imported speakers.json: {}", e),
+        Err(e) => warn!("🎙️ Failed to serialize imported speaker centroids: {}", e),
+    }
+}
+
 /// Create a new meeting with transcripts in the database
 async fn create_meeting_with_transcripts(
     pool: &sqlx::SqlitePool,
@@ -738,9 +964,25 @@ async fn create_meeting_with_transcripts(
 
     // Insert transcripts
     for segment in segments {
+        let overlap_speaker_ids = serialize_overlap_speaker_ids(segment);
         sqlx::query(
-            "INSERT INTO transcripts (id, meeting_id, transcript, timestamp, audio_start_time, audio_end_time, duration)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO transcripts (
+                id,
+                meeting_id,
+                transcript,
+                timestamp,
+                audio_start_time,
+                audio_end_time,
+                duration,
+                speaker,
+                attribution_source,
+                overlap_region_id,
+                overlap_speaker_ids,
+                overlap_start_time,
+                overlap_end_time,
+                overlap_confidence
+             )
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&segment.id)
         .bind(&meeting_id)
@@ -749,9 +991,48 @@ async fn create_meeting_with_transcripts(
         .bind(segment.audio_start_time)
         .bind(segment.audio_end_time)
         .bind(segment.duration)
+        .bind(&segment.speaker)
+        .bind(
+            segment
+                .attribution_source
+                .as_ref()
+                .map(AttributionSource::as_str),
+        )
+        .bind(&segment.overlap_region_id)
+        .bind(overlap_speaker_ids)
+        .bind(segment.overlap_start_time)
+        .bind(segment.overlap_end_time)
+        .bind(segment.overlap_confidence)
         .execute(&mut *tx)
         .await
         .map_err(|e| anyhow!("Failed to insert transcript: {}", e))?;
+    }
+
+    for region in collect_overlap_regions(segments) {
+        sqlx::query(
+            "INSERT INTO overlap_regions (
+                meeting_id,
+                id,
+                start_ms,
+                end_ms,
+                speaker_ids,
+                confidence,
+                estimated_speaker_count,
+                status
+             )
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&meeting_id)
+        .bind(&region.id)
+        .bind(region.start_ms as i64)
+        .bind(region.end_ms as i64)
+        .bind(&region.speaker_ids_json)
+        .bind(region.confidence)
+        .bind(region.estimated_speaker_count as i64)
+        .bind(&region.status)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| anyhow!("Failed to insert overlap region: {}", e))?;
     }
 
     tx.commit()
@@ -765,6 +1046,71 @@ async fn create_meeting_with_transcripts(
     );
 
     Ok(meeting_id)
+}
+
+fn serialize_overlap_speaker_ids(segment: &TranscriptSegment) -> Option<String> {
+    segment
+        .overlap_speaker_ids
+        .as_ref()
+        .and_then(|speaker_ids| serde_json::to_string(speaker_ids).ok())
+}
+
+fn collect_overlap_regions(segments: &[TranscriptSegment]) -> Vec<PersistedOverlapRegion> {
+    let mut regions = BTreeMap::new();
+
+    for segment in segments {
+        let Some(region_id) = &segment.overlap_region_id else {
+            continue;
+        };
+
+        let speaker_ids = segment.overlap_speaker_ids.clone().unwrap_or_default();
+        let speaker_ids_json = serde_json::to_string(&speaker_ids).unwrap_or_else(|_| "[]".into());
+        let status = segment
+            .overlap_status
+            .as_ref()
+            .map(OverlapStatus::as_str)
+            .or_else(|| {
+                segment
+                    .attribution_source
+                    .as_ref()
+                    .map(infer_overlap_status_from_attribution)
+            })
+            .unwrap_or("MarkedAmbiguous")
+            .to_string();
+
+        regions
+            .entry(region_id.clone())
+            .or_insert(PersistedOverlapRegion {
+                id: region_id.clone(),
+                start_ms: segment
+                    .overlap_start_time
+                    .map(seconds_to_ms)
+                    .unwrap_or_default(),
+                end_ms: segment
+                    .overlap_end_time
+                    .map(seconds_to_ms)
+                    .unwrap_or_default(),
+                speaker_ids_json,
+                confidence: segment.overlap_confidence,
+                estimated_speaker_count: speaker_ids.len(),
+                status,
+            });
+    }
+
+    regions.into_values().collect()
+}
+
+fn infer_overlap_status_from_attribution(source: &AttributionSource) -> &'static str {
+    match source {
+        AttributionSource::OverlapDetectedAmbiguous => "MarkedAmbiguous",
+        AttributionSource::Level5Resolved => "Resolved",
+        AttributionSource::UserCorrected => "Resolved",
+        AttributionSource::NormalDiarization => "Detected",
+    }
+}
+
+fn seconds_to_ms(seconds: f64) -> u64 {
+    (seconds.max(0.0) * 1000.0).round() as u64
 }
 
 /// Get or initialize the Whisper engine
@@ -1032,6 +1378,7 @@ pub async fn is_import_in_progress_command() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audio::common::create_transcript_segments;
 
     #[test]
     fn test_audio_extensions() {
@@ -1132,10 +1479,12 @@ mod tests {
 
         let result = validate_audio_file(&temp_file);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Unsupported format"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Unsupported format")
+        );
 
         // Cleanup
         let _ = std::fs::remove_file(temp_file);
@@ -1367,7 +1716,9 @@ mod tests {
 
                 println!(
                     "Stats: avg={:.0}ms, min={:.0}ms, max={:.0}ms, total_speech={:.1}s/{:.1}s ({:.0}%)",
-                    avg, min, max,
+                    avg,
+                    min,
+                    max,
                     total_speech / 1000.0,
                     decoded.duration_seconds,
                     (total_speech / 1000.0 / decoded.duration_seconds) * 100.0

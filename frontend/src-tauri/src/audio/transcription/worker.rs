@@ -80,11 +80,15 @@ async fn init_diarization_session<R: Runtime>(
         info!("🎙️ Speaker identification disabled for this recording");
         return None;
     }
-    if !crate::diarization::models::is_embedding_model_present(app) {
-        warn!("🎙️ Speaker identification enabled but embedding model not downloaded - labels disabled");
+    let selected_model_id = match app.try_state::<crate::state::AppState>() {
+        Some(state) => crate::diarization::commands::selected_model_id(state.db_manager.pool()).await,
+        None => crate::diarization::models::DEFAULT_EMBEDDING_MODEL_ID.to_string(),
+    };
+    if !crate::diarization::models::is_embedding_model_present_for_id(app, &selected_model_id) {
+        warn!("🎙️ Speaker identification enabled but embedding model '{}' not downloaded - labels disabled", selected_model_id);
         return None;
     }
-    let model_path = match crate::diarization::models::embedding_model_path(app) {
+    let model_path = match crate::diarization::models::embedding_model_path_for_id(app, &selected_model_id) {
         Ok(path) => path,
         Err(e) => {
             warn!("🎙️ Could not resolve diarization model path: {}", e);
@@ -117,7 +121,12 @@ async fn init_diarization_session<R: Runtime>(
     };
     let profile_count = profiles.len();
 
-    match crate::diarization::DiarizationSession::with_profiles(&model_path, profiles) {
+    let session_config = crate::diarization::models::session_config_for_model_id(&selected_model_id);
+    match crate::diarization::DiarizationSession::with_profiles_and_config(
+        &model_path,
+        profiles,
+        session_config,
+    ) {
         Ok(session) => {
             info!(
                 "🎙️ ✅ Speaker identification active for this recording ({} saved profile{})",

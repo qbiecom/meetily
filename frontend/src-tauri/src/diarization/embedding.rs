@@ -4,7 +4,7 @@
 // (input: kaldi fbank features [1, T, 80], output: 192-dim embedding).
 
 use super::fbank::{FbankComputer, NUM_MEL_BINS};
-use ndarray::Array3;
+use ndarray16::Array3;
 use ort::execution_providers::CPUExecutionProvider;
 use ort::inputs;
 use ort::session::builder::GraphOptimizationLevel;

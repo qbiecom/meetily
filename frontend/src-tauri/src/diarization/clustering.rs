@@ -6,7 +6,7 @@
 // cluster. Centroids are running means, re-normalized after update.
 
 /// Minimum cosine similarity for an embedding to join an existing cluster.
-/// Tuned for WeSpeaker CAM++ embeddings; raise to split more aggressively.
+/// Raise to split more aggressively.
 pub const CLUSTER_SIMILARITY_THRESHOLD: f32 = 0.55;
 
 /// Minimum cosine similarity for a new cluster to match a saved voice profile.
@@ -17,6 +17,23 @@ pub const PROFILE_MATCH_THRESHOLD: f32 = 0.60;
 /// tuned for one-on-one and small two-person meetings. Outlier embeddings
 /// should not mint unlimited anonymous speakers during live transcription.
 pub const DEFAULT_MAX_ANONYMOUS_SPEAKERS: usize = 2;
+
+#[derive(Debug, Clone, Copy)]
+pub struct SpeakerClusteringConfig {
+    pub cluster_similarity_threshold: f32,
+    pub profile_match_threshold: f32,
+    pub max_anonymous_speakers: usize,
+}
+
+impl Default for SpeakerClusteringConfig {
+    fn default() -> Self {
+        Self {
+            cluster_similarity_threshold: CLUSTER_SIMILARITY_THRESHOLD,
+            profile_match_threshold: PROFILE_MATCH_THRESHOLD,
+            max_anonymous_speakers: DEFAULT_MAX_ANONYMOUS_SPEAKERS,
+        }
+    }
+}
 
 pub struct SpeakerCluster {
     pub centroid: Vec<f32>,
@@ -32,7 +49,7 @@ pub struct SpeakerClusterer {
     clusters: Vec<SpeakerCluster>,
     last_label: Option<String>,
     anon_speaker_count: usize,
-    max_anonymous_speakers: usize,
+    config: SpeakerClusteringConfig,
 }
 
 pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
@@ -45,15 +62,23 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 
 impl SpeakerClusterer {
     pub fn new() -> Self {
-        Self::with_max_anonymous_speakers(DEFAULT_MAX_ANONYMOUS_SPEAKERS)
+        Self::with_config(SpeakerClusteringConfig::default())
     }
 
     pub fn with_max_anonymous_speakers(max_anonymous_speakers: usize) -> Self {
+        Self::with_config(SpeakerClusteringConfig {
+            max_anonymous_speakers,
+            ..SpeakerClusteringConfig::default()
+        })
+    }
+
+    pub fn with_config(mut config: SpeakerClusteringConfig) -> Self {
+        config.max_anonymous_speakers = config.max_anonymous_speakers.max(1);
         Self {
             clusters: Vec::new(),
             last_label: None,
             anon_speaker_count: 0,
-            max_anonymous_speakers: max_anonymous_speakers.max(1),
+            config,
         }
     }
 
@@ -90,9 +115,9 @@ impl SpeakerClusterer {
             .filter(|(i, similarity)| {
                 let cluster = &self.clusters[*i];
                 let threshold = if cluster.from_profile && cluster.count == 0 {
-                    PROFILE_MATCH_THRESHOLD
+                    self.config.profile_match_threshold
                 } else {
-                    CLUSTER_SIMILARITY_THRESHOLD
+                    self.config.cluster_similarity_threshold
                 };
                 *similarity >= threshold
             })
@@ -100,7 +125,7 @@ impl SpeakerClusterer {
 
         let label = if let Some((idx, _)) = best {
             self.update_cluster(idx, embedding)
-        } else if self.anon_speaker_count >= self.max_anonymous_speakers {
+        } else if self.anon_speaker_count >= self.config.max_anonymous_speakers {
             self.nearest_active_cluster_label(embedding)
                 .unwrap_or_else(|| self.create_anonymous_cluster(embedding))
         } else {

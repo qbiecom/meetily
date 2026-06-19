@@ -11,13 +11,41 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Progress } from './ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import { Download, Mic2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface DiarizationModel {
+  id: string;
+  name: string;
+  description: string;
+  filename: string;
+  size_mb: number;
+  recommended: boolean;
+  legacy: boolean;
+  embedding_dimension: number;
+  cluster_similarity_threshold: number;
+  profile_match_threshold: number;
+  max_anonymous_speakers: number;
+  live_max_anonymous_speakers: number;
+  import_max_anonymous_speakers: number;
+  min_reliable_segment_ms: number;
+  default_import_vad_redemption_ms: number;
+  present: boolean;
+}
 
 interface DiarizationStatus {
   enabled: boolean;
   model_present: boolean;
   model_filename: string;
+  selected_model_id: string;
+  models: DiarizationModel[];
 }
 
 interface VoiceProfile {
@@ -118,11 +146,24 @@ export function SpeakerIdentificationSettings() {
     }
   };
 
+  const handleModelChange = async (modelId: string) => {
+    if (!status || modelId === status.selected_model_id) return;
+    try {
+      await invoke('diarization_set_model', { modelId });
+      await refreshStatus();
+      const selected = status.models.find((model) => model.id === modelId);
+      toast.success(`Speaker model set to ${selected?.name ?? modelId}`);
+    } catch (err) {
+      console.error('Failed to update speaker model:', err);
+      toast.error(`Failed to update speaker model: ${err}`);
+    }
+  };
+
   const handleDownload = async () => {
     setIsDownloading(true);
     setDownloadPercent(0);
     try {
-      await invoke('diarization_download_model');
+      await invoke('diarization_download_model', { modelId: status?.selected_model_id });
       toast.success('Speaker model downloaded');
       await refreshStatus();
     } catch (err) {
@@ -134,6 +175,9 @@ export function SpeakerIdentificationSettings() {
   };
 
   if (!status) return null;
+
+  const selectedModel =
+    status.models.find((model) => model.id === status.selected_model_id) ?? status.models[0];
 
   return (
     <div className="mt-6 border-t pt-4">
@@ -154,6 +198,32 @@ export function SpeakerIdentificationSettings() {
         <Switch checked={status.enabled} onCheckedChange={handleToggle} />
       </div>
 
+      <div className="mt-4 space-y-2">
+        <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          Speaker model
+        </Label>
+        <Select value={status.selected_model_id} onValueChange={handleModelChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select speaker model" />
+          </SelectTrigger>
+          <SelectContent>
+            {status.models.map((model) => (
+              <SelectItem key={model.id} value={model.id}>
+                {model.name}
+                {model.recommended ? ' (recommended)' : ''}
+                {model.present ? ' ✓' : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {selectedModel && (
+          <p className="text-xs text-gray-500">
+            {selectedModel.description} File: {selectedModel.filename} (~{selectedModel.size_mb}{' '}
+            MB).
+          </p>
+        )}
+      </div>
+
       {status.enabled && !status.model_present && (
         <div className="mt-3">
           {isDownloading ? (
@@ -164,7 +234,7 @@ export function SpeakerIdentificationSettings() {
           ) : (
             <Button variant="outline" size="sm" onClick={handleDownload}>
               <Download className="h-4 w-4 mr-2" />
-              Download speaker model (~28 MB)
+              Download {selectedModel?.name ?? 'speaker model'} (~{selectedModel?.size_mb ?? 28} MB)
             </Button>
           )}
         </div>

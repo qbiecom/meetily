@@ -7,7 +7,7 @@
 use crate::database::repositories::speaker_profile::SpeakerProfilesRepository;
 use crate::state::AppState;
 use sqlx::SqlitePool;
-use tauri::{command, AppHandle, Runtime};
+use tauri::{AppHandle, Runtime, command};
 
 pub async fn is_enabled(pool: &SqlitePool) -> bool {
     sqlx::query_scalar::<_, i64>("SELECT enabled FROM diarization_settings WHERE id = '1'")
@@ -19,17 +19,58 @@ pub async fn is_enabled(pool: &SqlitePool) -> bool {
         .unwrap_or(false)
 }
 
+pub async fn selected_model_id(pool: &SqlitePool) -> String {
+    let selected = sqlx::query_scalar::<_, String>(
+        "SELECT selected_model_id FROM diarization_settings WHERE id = '1'",
+    )
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+
+    super::models::valid_or_default_model_id(selected.as_deref()).to_string()
+}
+
 #[command]
 pub async fn diarization_get_status<R: Runtime>(
     app: AppHandle<R>,
     state: tauri::State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
     let enabled = is_enabled(state.db_manager.pool()).await;
-    let model_present = super::models::is_embedding_model_present(&app);
+    let selected_model_id = selected_model_id(state.db_manager.pool()).await;
+    let model_present = super::models::is_embedding_model_present_for_id(&app, &selected_model_id);
+    let models = super::models::embedding_models()
+        .iter()
+        .map(|model| {
+            serde_json::json!({
+                "id": model.id,
+                "name": model.name,
+                "description": model.description,
+                "filename": model.filename,
+                "size_mb": model.size_mb,
+                "recommended": model.recommended,
+                "legacy": model.legacy,
+                "embedding_dimension": model.embedding_dimension,
+                "cluster_similarity_threshold": model.cluster_similarity_threshold,
+                "profile_match_threshold": model.profile_match_threshold,
+                "max_anonymous_speakers": model.live_max_anonymous_speakers,
+                "live_max_anonymous_speakers": model.live_max_anonymous_speakers,
+                "import_max_anonymous_speakers": model.import_max_anonymous_speakers,
+                "min_reliable_segment_ms": model.min_reliable_segment_ms,
+                "default_import_vad_redemption_ms": model.default_import_vad_redemption_ms,
+                "present": super::models::is_embedding_model_present_for_id(&app, model.id),
+            })
+        })
+        .collect::<Vec<_>>();
+    let selected_model = super::models::embedding_model_by_id(&selected_model_id)
+        .or_else(|| super::models::embedding_model_by_id(super::models::DEFAULT_EMBEDDING_MODEL_ID))
+        .ok_or_else(|| "No diarization models are registered".to_string())?;
     Ok(serde_json::json!({
         "enabled": enabled,
         "model_present": model_present,
-        "model_filename": super::models::EMBEDDING_MODEL_FILENAME,
+        "model_filename": selected_model.filename,
+        "selected_model_id": selected_model.id,
+        "models": models,
     }))
 }
 
@@ -48,13 +89,49 @@ pub async fn diarization_set_enabled(
     .execute(state.db_manager.pool())
     .await
     .map_err(|e| format!("Failed to save diarization setting: {}", e))?;
-    log::info!("Speaker identification {}", if enabled { "enabled" } else { "disabled" });
+    log::info!(
+        "Speaker identification {}",
+        if enabled { "enabled" } else { "disabled" }
+    );
     Ok(())
 }
 
 #[command]
-pub async fn diarization_download_model<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
-    super::models::download_embedding_model(&app).await
+pub async fn diarization_set_model(
+    state: tauri::State<'_, AppState>,
+    model_id: String,
+) -> Result<(), String> {
+    let model_id = super::models::embedding_model_by_id(&model_id)
+        .map(|model| model.id)
+        .ok_or_else(|| format!("Unknown diarization model: {}", model_id))?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO diarization_settings (id, enabled, selected_model_id) VALUES ('1', 0, $1)
+        ON CONFLICT(id) DO UPDATE SET selected_model_id = excluded.selected_model_id
+        "#,
+    )
+    .bind(model_id)
+    .execute(state.db_manager.pool())
+    .await
+    .map_err(|e| format!("Failed to save diarization model setting: {}", e))?;
+    log::info!("Selected speaker identification model: {}", model_id);
+    Ok(())
+}
+
+#[command]
+pub async fn diarization_download_model<R: Runtime>(
+    app: AppHandle<R>,
+    state: tauri::State<'_, AppState>,
+    model_id: Option<String>,
+) -> Result<(), String> {
+    let selected = match model_id {
+        Some(model_id) => super::models::embedding_model_by_id(&model_id)
+            .map(|model| model.id.to_string())
+            .ok_or_else(|| format!("Unknown diarization model: {}", model_id))?,
+        None => selected_model_id(state.db_manager.pool()).await,
+    };
+    super::models::download_embedding_model_for_id(&app, &selected).await
 }
 
 /// Read the centroid for a speaker label from a meeting folder's speakers.json.
@@ -97,13 +174,14 @@ pub async fn diarization_rename_speaker(
     }
     let pool = state.db_manager.pool();
 
-    let result = sqlx::query("UPDATE transcripts SET speaker = ? WHERE meeting_id = ? AND speaker = ?")
-        .bind(new_name)
-        .bind(&meeting_id)
-        .bind(&old_label)
-        .execute(pool)
-        .await
-        .map_err(|e| format!("Failed to rename speaker: {}", e))?;
+    let result =
+        sqlx::query("UPDATE transcripts SET speaker = ? WHERE meeting_id = ? AND speaker = ?")
+            .bind(new_name)
+            .bind(&meeting_id)
+            .bind(&old_label)
+            .execute(pool)
+            .await
+            .map_err(|e| format!("Failed to rename speaker: {}", e))?;
     let updated = result.rows_affected();
 
     let mut profile_saved = false;
@@ -124,7 +202,11 @@ pub async fn diarization_rename_speaker(
                 .await
                 .map_err(|e| format!("Failed to save voice profile: {}", e))?;
             profile_saved = true;
-            log::info!("Saved voice profile '{}' from meeting {}", new_name, meeting_id);
+            log::info!(
+                "Saved voice profile '{}' from meeting {}",
+                new_name,
+                meeting_id
+            );
         } else {
             log::warn!(
                 "No voice centroid found for '{}' in meeting {} - profile not saved",
