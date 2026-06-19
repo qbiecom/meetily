@@ -1,4 +1,5 @@
 const path = require('path');
+const resolveSibling = (entry, sibling) => path.join(path.dirname(require.resolve(entry)), sibling);
 const tiptapPmResolveBase = path.dirname(require.resolve('@tiptap/pm/model'));
 const resolveFromTiptapPm = (pkg) =>
   require.resolve(pkg, { paths: [tiptapPmResolveBase] });
@@ -30,9 +31,9 @@ const nextConfig = {
       // Keep ProseMirror single-instanced for BlockNote/Tiptap.
       config.resolve.alias = {
         ...config.resolve.alias,
-        '@blocknote/core$': require.resolve('@blocknote/core'),
-        '@blocknote/react$': require.resolve('@blocknote/react'),
-        '@blocknote/shadcn$': require.resolve('@blocknote/shadcn'),
+        '@blocknote/core$': resolveSibling('@blocknote/core', 'blocknote.js'),
+        '@blocknote/react$': resolveSibling('@blocknote/react', 'blocknote-react.js'),
+        '@blocknote/shadcn$': resolveSibling('@blocknote/shadcn', 'blocknote-shadcn.js'),
         '@handlewithcare/prosemirror-inputrules$': resolveFromBlockNoteCore('@handlewithcare/prosemirror-inputrules/dist/index.js'),
         'prosemirror-model': resolveFromTiptapPm('prosemirror-model'),
         'prosemirror-state': resolveFromTiptapPm('prosemirror-state'),

@@ -17,7 +17,6 @@ interface Note {
 }
 
 export function generateStaticParams() {
-  // Return all possible note IDs
   return [
     { id: 'team-sync-dec-26' },
     { id: 'product-review' },
@@ -29,7 +28,6 @@ export function generateStaticParams() {
 const NotePage = async ({ params }: PageProps) => {
   const { id } = await params;
 
-  // This would normally come from your database
   const sampleData: Record<string, Note> = {
     'team-sync-dec-26': {
       title: 'Team Sync - Dec 26',
@@ -128,7 +126,7 @@ Quarterly product review session with stakeholders.
     }
   };
 
-  const note = sampleData[id as keyof typeof sampleData];
+  const note = sampleData[id];
 
   if (!note) {
     return <div className="p-8">Note not found</div>;
@@ -138,7 +136,7 @@ Quarterly product review session with stakeholders.
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-4">{note.title}</h1>
-        
+
         <div className="flex flex-wrap gap-4 text-gray-600">
           {note.date && (
             <div className="flex items-center gap-1">
@@ -146,14 +144,14 @@ Quarterly product review session with stakeholders.
               <span>{note.date}</span>
             </div>
           )}
-          
+
           {note.time && (
             <div className="flex items-center gap-1">
               <Clock className="w-4 h-4" />
               <span>{note.time}</span>
             </div>
           )}
-          
+
           {note.attendees && (
             <div className="flex items-center gap-1">
               <Users className="w-4 h-4" />
