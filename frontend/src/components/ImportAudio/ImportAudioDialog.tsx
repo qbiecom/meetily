@@ -77,6 +77,7 @@ export function ImportAudioDialog({
   const [title, setTitle] = useState('');
   const [selectedLang, setSelectedLang] = useState(selectedLanguage || 'auto');
   const [expectedSpeakers, setExpectedSpeakers] = useState('auto');
+  const [speakerTurnSensitivity, setSpeakerTurnSensitivity] = useState('high');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [titleModifiedByUser, setTitleModifiedByUser] = useState(false);
 
@@ -140,6 +141,7 @@ export function ImportAudioDialog({
       setTitleModifiedByUser(false);
       setSelectedLang(selectedLanguage || 'auto');
       setExpectedSpeakers('auto');
+      setSpeakerTurnSensitivity('high');
       setShowAdvanced(false);
 
       // Validate preselected file if provided
@@ -196,7 +198,8 @@ export function ImportAudioDialog({
       isParakeetModel ? null : selectedLang === 'auto' ? null : selectedLang,
       selectedModel?.name || null,
       selectedModel?.provider || null,
-      expectedSpeakerCount
+      expectedSpeakerCount,
+      speakerTurnSensitivity
     );
   };
 
@@ -431,6 +434,34 @@ export function ImportAudioDialog({
                         </Select>
                         <p className="text-xs text-muted-foreground">
                           Used only for imported-audio speaker identification. Auto allows up to the model default.
+                        </p>
+                      </div>
+
+                      {/* Speaker turn sensitivity */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Cpu className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">Speaker turn sensitivity</span>
+                        </div>
+                        <Select
+                          value={speakerTurnSensitivity}
+                          onValueChange={setSpeakerTurnSensitivity}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select speaker turn sensitivity" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="high">High: strongest speaker separation</SelectItem>
+                            <SelectItem value="default">Default: good speaker separation</SelectItem>
+                            <SelectItem value="balanced">Balanced: recommended</SelectItem>
+                            <SelectItem value="low">Low: smoother transcript</SelectItem>
+                            <SelectItem value="smooth">Smooth: fewest fragments</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Used when imported-audio speaker identification is active. High is more sensitive
+                          than the model default and may split sentences. Smoother options create fewer
+                          fragments but may merge speakers.
                         </p>
                       </div>
                     </div>

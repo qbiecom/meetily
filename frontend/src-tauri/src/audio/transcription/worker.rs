@@ -5,6 +5,7 @@
 use super::engine::TranscriptionEngine;
 use super::provider::TranscriptionError;
 use crate::audio::AudioChunk;
+use crate::database::repositories::speaker_profile::SpeakerProfilesRepository;
 use crate::diarization::overlap_detector::{
     detect_overlap_regions_from_timeline, find_overlap_region_for_range, AttributionSource,
     OverlapDetector, OverlapStatus,
@@ -99,11 +100,12 @@ async fn init_diarization_session<R: Runtime>(
     // Seed saved voice profiles so returning speakers are labeled by name
     let profiles = match app.try_state::<crate::state::AppState>() {
         Some(state) => {
-            match crate::database::repositories::speaker_profile::SpeakerProfilesRepository::list(
+            let result = SpeakerProfilesRepository::list_by_model(
                 state.db_manager.pool(),
+                &selected_model_id,
             )
-            .await
-            {
+            .await;
+            match result {
                 Ok(profiles) => profiles
                     .into_iter()
                     .map(|p| (p.name, p.embedding))
@@ -164,6 +166,7 @@ async fn persist_speaker_centroids(
     };
     let json = serde_json::json!({
         "version": "1.0",
+        "model_id": session.model_id(),
         "speakers": snapshot.iter().map(|(label, centroid, count)| {
             serde_json::json!({ "label": label, "centroid": centroid, "segments": count })
         }).collect::<Vec<_>>(),

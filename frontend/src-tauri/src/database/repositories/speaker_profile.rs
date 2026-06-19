@@ -12,6 +12,7 @@ use uuid::Uuid;
 pub struct SpeakerProfileRow {
     pub id: String,
     pub name: String,
+    pub model_id: String,
     pub embedding: Vec<u8>,
 }
 
@@ -19,6 +20,7 @@ pub struct SpeakerProfileRow {
 pub struct SpeakerProfile {
     pub id: String,
     pub name: String,
+    pub model_id: String,
     #[serde(skip)]
     pub embedding: Vec<f32>,
 }
@@ -38,34 +40,60 @@ pub struct SpeakerProfilesRepository;
 impl SpeakerProfilesRepository {
     pub async fn list(pool: &SqlitePool) -> Result<Vec<SpeakerProfile>, SqlxError> {
         let rows = sqlx::query_as::<_, SpeakerProfileRow>(
-            "SELECT id, name, embedding FROM speaker_profiles ORDER BY name",
+            "SELECT id, name, model_id, embedding FROM speaker_profiles ORDER BY name",
         )
         .fetch_all(pool)
         .await?;
 
-        Ok(rows
+        Ok(Self::rows_to_profiles(rows))
+    }
+
+    pub async fn list_by_model(
+        pool: &SqlitePool,
+        model_id: &str,
+    ) -> Result<Vec<SpeakerProfile>, SqlxError> {
+        let rows = sqlx::query_as::<_, SpeakerProfileRow>(
+            r#"
+            SELECT id, name, model_id, embedding
+            FROM speaker_profiles
+            WHERE model_id = ?
+            ORDER BY name
+            "#,
+        )
+        .bind(model_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(Self::rows_to_profiles(rows))
+    }
+
+    fn rows_to_profiles(rows: Vec<SpeakerProfileRow>) -> Vec<SpeakerProfile> {
+        rows
             .into_iter()
             .map(|r| SpeakerProfile {
                 id: r.id,
                 name: r.name,
+                model_id: r.model_id,
                 embedding: blob_to_embedding(&r.embedding),
             })
-            .collect())
+            .collect()
     }
 
     pub async fn create(
         pool: &SqlitePool,
         name: &str,
+        model_id: &str,
         embedding: &[f32],
     ) -> Result<String, SqlxError> {
         let id = format!("speaker-{}", Uuid::new_v4());
         let now = Utc::now();
         sqlx::query(
-            "INSERT INTO speaker_profiles (id, name, embedding, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO speaker_profiles (id, name, model_id, embedding, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?)",
         )
         .bind(&id)
         .bind(name)
+        .bind(model_id)
         .bind(embedding_to_blob(embedding))
         .bind(now)
         .bind(now)

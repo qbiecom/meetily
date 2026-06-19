@@ -51,6 +51,7 @@ interface DiarizationStatus {
 interface VoiceProfile {
   id: string;
   name: string;
+  model_id: string;
 }
 
 interface DownloadProgressEvent {
@@ -151,6 +152,7 @@ export function SpeakerIdentificationSettings() {
     try {
       await invoke('diarization_set_model', { modelId });
       await refreshStatus();
+      await refreshProfiles();
       const selected = status.models.find((model) => model.id === modelId);
       toast.success(`Speaker model set to ${selected?.name ?? modelId}`);
     } catch (err) {

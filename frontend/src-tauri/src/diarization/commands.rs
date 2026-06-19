@@ -134,11 +134,16 @@ pub async fn diarization_download_model<R: Runtime>(
     super::models::download_embedding_model_for_id(&app, &selected).await
 }
 
-/// Read the centroid for a speaker label from a meeting folder's speakers.json.
-fn load_centroid_from_folder(folder: &str, label: &str) -> Option<Vec<f32>> {
+/// Read the centroid and embedding model for a speaker label from a meeting folder's speakers.json.
+fn load_centroid_from_folder(folder: &str, label: &str) -> Option<(Vec<f32>, String)> {
     let path = std::path::Path::new(folder).join("speakers.json");
     let content = std::fs::read_to_string(&path).ok()?;
     let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let model_id = json
+        .get("model_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or(super::models::LEGACY_EMBEDDING_MODEL_ID)
+        .to_string();
     json.get("speakers")?.as_array()?.iter().find_map(|s| {
         if s.get("label")?.as_str()? != label {
             return None;
@@ -152,7 +157,7 @@ fn load_centroid_from_folder(folder: &str, label: &str) -> Option<Vec<f32>> {
         if centroid.is_empty() {
             None
         } else {
-            Some(centroid)
+            Some((centroid, model_id.clone()))
         }
     })
 }
@@ -194,18 +199,19 @@ pub async fn diarization_rename_speaker(
                 .map_err(|e| format!("Failed to look up meeting folder: {}", e))?
                 .flatten();
 
-        if let Some(centroid) = folder_path
+        if let Some((centroid, model_id)) = folder_path
             .as_deref()
             .and_then(|f| load_centroid_from_folder(f, &old_label))
         {
-            SpeakerProfilesRepository::create(pool, new_name, &centroid)
+            SpeakerProfilesRepository::create(pool, new_name, &model_id, &centroid)
                 .await
                 .map_err(|e| format!("Failed to save voice profile: {}", e))?;
             profile_saved = true;
             log::info!(
-                "Saved voice profile '{}' from meeting {}",
+                "Saved voice profile '{}' from meeting {} using model {}",
                 new_name,
-                meeting_id
+                meeting_id,
+                model_id
             );
         } else {
             log::warn!(
@@ -226,12 +232,13 @@ pub async fn diarization_rename_speaker(
 pub async fn diarization_list_profiles(
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<serde_json::Value>, String> {
-    let profiles = SpeakerProfilesRepository::list(state.db_manager.pool())
+    let model_id = selected_model_id(state.db_manager.pool()).await;
+    let profiles = SpeakerProfilesRepository::list_by_model(state.db_manager.pool(), &model_id)
         .await
         .map_err(|e| format!("Failed to list voice profiles: {}", e))?;
     Ok(profiles
         .into_iter()
-        .map(|p| serde_json::json!({ "id": p.id, "name": p.name }))
+        .map(|p| serde_json::json!({ "id": p.id, "name": p.name, "model_id": p.model_id }))
         .collect())
 }
 

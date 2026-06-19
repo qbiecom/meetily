@@ -21,6 +21,7 @@ pub const DEFAULT_MIN_RELIABLE_SEGMENT_MS: u32 =
 
 #[derive(Debug, Clone, Copy)]
 pub struct DiarizationSessionConfig {
+    pub model_id: &'static str,
     pub clustering: SpeakerClusteringConfig,
     pub min_reliable_segment_ms: u32,
 }
@@ -28,6 +29,7 @@ pub struct DiarizationSessionConfig {
 impl Default for DiarizationSessionConfig {
     fn default() -> Self {
         Self {
+            model_id: super::models::DEFAULT_EMBEDDING_MODEL_ID,
             clustering: SpeakerClusteringConfig::default(),
             min_reliable_segment_ms: DEFAULT_MIN_RELIABLE_SEGMENT_MS,
         }
@@ -113,6 +115,10 @@ impl DiarizationSession {
             .centroids()
             .map(|(label, centroid, count)| (label.to_string(), centroid.to_vec(), count))
             .collect()
+    }
+
+    pub fn model_id(&self) -> &'static str {
+        self.config.model_id
     }
 
     /// Assign a speaker label to a 16kHz mono speech segment.

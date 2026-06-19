@@ -52,7 +52,8 @@ export interface UseImportAudioReturn {
     language?: string | null,
     model?: string | null,
     provider?: string | null,
-    expectedSpeakers?: number | null
+    expectedSpeakers?: number | null,
+    speakerTurnSensitivity?: string | null
   ) => Promise<void>;
   cancelImport: () => Promise<void>;
   reset: () => void;
@@ -210,7 +211,8 @@ export function useImportAudio({
       language?: string | null,
       model?: string | null,
       provider?: string | null,
-      expectedSpeakers?: number | null
+      expectedSpeakers?: number | null,
+      speakerTurnSensitivity?: string | null
     ) => {
       isCancelledRef.current = false;
       setStatus('processing');
@@ -225,7 +227,8 @@ export function useImportAudio({
             language: language || 'auto',
             model_provider: provider || '',
             model_name: model || '',
-            expected_speakers: expectedSpeakers?.toString() || 'auto'
+            expected_speakers: expectedSpeakers?.toString() || 'auto',
+            speaker_turn_sensitivity: speakerTurnSensitivity || 'high'
           });
         }
 
@@ -236,6 +239,7 @@ export function useImportAudio({
           model: model || null,
           provider: provider || null,
           expectedSpeakers: expectedSpeakers || null,
+          speakerTurnSensitivity: speakerTurnSensitivity || null,
         });
       } catch (err: any) {
         setStatus('error');

@@ -4,6 +4,7 @@ use crate::api::TranscriptSegment;
 use crate::audio::decoder::{decode_audio_file, decode_audio_file_with_progress};
 use crate::audio::vad::get_speech_chunks_with_progress;
 use crate::config::{DEFAULT_PARAKEET_MODEL, DEFAULT_WHISPER_MODEL};
+use crate::database::repositories::speaker_profile::SpeakerProfilesRepository;
 use crate::diarization::overlap_detector::{
     AttributionSource, OverlapDetector, OverlapStatus, detect_overlap_regions_from_timeline,
     find_overlap_region_for_range,
@@ -59,6 +60,33 @@ impl Drop for ImportGuard {
 /// Default import VAD redemption in milliseconds. Batch transcription normally
 /// benefits from a longer redemption window to avoid sentence fragmentation.
 const DEFAULT_IMPORT_VAD_REDEMPTION_TIME_MS: u32 = 2000;
+
+const IMPORT_VAD_HIGH_REDEMPTION_TIME_MS: u32 = 250;
+const IMPORT_VAD_DEFAULT_REDEMPTION_TIME_MS: u32 = 400;
+const IMPORT_VAD_BALANCED_REDEMPTION_TIME_MS: u32 = 800;
+const IMPORT_VAD_LOW_REDEMPTION_TIME_MS: u32 = 1500;
+const IMPORT_VAD_SMOOTH_REDEMPTION_TIME_MS: u32 = DEFAULT_IMPORT_VAD_REDEMPTION_TIME_MS;
+
+fn import_vad_redemption_time_ms(
+    diarization_model_id: Option<&str>,
+    speaker_turn_sensitivity: Option<&str>,
+) -> u32 {
+    let Some(model_id) = diarization_model_id else {
+        return DEFAULT_IMPORT_VAD_REDEMPTION_TIME_MS;
+    };
+
+    match speaker_turn_sensitivity.unwrap_or("high") {
+        "high" => IMPORT_VAD_HIGH_REDEMPTION_TIME_MS,
+        "default" => {
+            crate::diarization::models::default_import_vad_redemption_ms_for_model_id(model_id)
+                .min(IMPORT_VAD_DEFAULT_REDEMPTION_TIME_MS)
+        }
+        "balanced" => IMPORT_VAD_BALANCED_REDEMPTION_TIME_MS,
+        "low" => IMPORT_VAD_LOW_REDEMPTION_TIME_MS,
+        "smooth" => IMPORT_VAD_SMOOTH_REDEMPTION_TIME_MS,
+        _ => crate::diarization::models::default_import_vad_redemption_ms_for_model_id(model_id),
+    }
+}
 
 /// Maximum file size: 20GB (prevents OOM and excessive processing time)
 const MAX_FILE_SIZE_BYTES: u64 = 20 * 1024 * 1024 * 1024; // 20GB
@@ -268,6 +296,7 @@ pub async fn start_import<R: Runtime>(
     model: Option<String>,
     provider: Option<String>,
     expected_speakers: Option<u32>,
+    speaker_turn_sensitivity: Option<String>,
 ) -> Result<ImportResult> {
     // Acquire guard - ensures flag is cleared even on panic/early return
     let _guard = ImportGuard::acquire().map_err(|e| anyhow!(e))?;
@@ -284,6 +313,7 @@ pub async fn start_import<R: Runtime>(
         model,
         provider,
         expected_speakers,
+        speaker_turn_sensitivity,
     )
     .await;
 
@@ -327,6 +357,7 @@ async fn run_import<R: Runtime>(
     model: Option<String>,
     provider: Option<String>,
     expected_speakers: Option<u32>,
+    speaker_turn_sensitivity: Option<String>,
 ) -> Result<ImportResult> {
     let source = PathBuf::from(&source_path);
 
@@ -439,15 +470,15 @@ async fn run_import<R: Runtime>(
     // Use VAD to find speech segments. When diarization can run, prefer the
     // live-pipeline redemption window so turns split before speaker labeling.
     let diarization_model_id = ready_import_diarization_model_id(&app).await;
-    let vad_redemption_time_ms = if let Some(model_id) = diarization_model_id.as_deref() {
-        crate::diarization::models::default_import_vad_redemption_ms_for_model_id(model_id)
-    } else {
-        DEFAULT_IMPORT_VAD_REDEMPTION_TIME_MS
-    };
+    let vad_redemption_time_ms = import_vad_redemption_time_ms(
+        diarization_model_id.as_deref(),
+        speaker_turn_sensitivity.as_deref(),
+    );
     info!(
-        "Import VAD redemption_time={}ms (diarization_ready={})",
+        "Import VAD redemption_time={}ms (diarization_ready={}, sensitivity={})",
         vad_redemption_time_ms,
-        diarization_model_id.is_some()
+        diarization_model_id.is_some(),
+        speaker_turn_sensitivity.as_deref().unwrap_or("default")
     );
 
     let app_for_vad = app.clone();
@@ -865,11 +896,12 @@ async fn init_import_diarization_session<R: Runtime>(
 
     let profiles = match app.try_state::<AppState>() {
         Some(state) => {
-            match crate::database::repositories::speaker_profile::SpeakerProfilesRepository::list(
+            let result = SpeakerProfilesRepository::list_by_model(
                 state.db_manager.pool(),
+                &selected_model_id,
             )
-            .await
-            {
+            .await;
+            match result {
                 Ok(profiles) => profiles
                     .into_iter()
                     .map(|profile| (profile.name, profile.embedding))
@@ -929,6 +961,7 @@ async fn persist_import_speaker_centroids(
 
     let json = serde_json::json!({
         "version": "1.0",
+        "model_id": session.model_id(),
         "speakers": snapshot.iter().map(|(label, centroid, count)| {
             serde_json::json!({ "label": label, "centroid": centroid, "segments": count })
         }).collect::<Vec<_>>(),
@@ -1357,6 +1390,7 @@ pub async fn start_import_audio_command<R: Runtime>(
     model: Option<String>,
     provider: Option<String>,
     expected_speakers: Option<u32>,
+    speaker_turn_sensitivity: Option<String>,
 ) -> Result<ImportStarted, String> {
     // Check if import is already in progress (guard will be acquired in start_import)
     if IMPORT_IN_PROGRESS.load(Ordering::SeqCst) {
@@ -1373,6 +1407,7 @@ pub async fn start_import_audio_command<R: Runtime>(
             model,
             provider,
             expected_speakers,
+            speaker_turn_sensitivity,
         )
         .await;
 

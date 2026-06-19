@@ -132,6 +132,7 @@ fn session_config_for_model(
     max_anonymous_speakers: usize,
 ) -> DiarizationSessionConfig {
     DiarizationSessionConfig {
+        model_id: model.id,
         clustering: SpeakerClusteringConfig {
             cluster_similarity_threshold: model.cluster_similarity_threshold,
             profile_match_threshold: model.profile_match_threshold,
