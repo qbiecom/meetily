@@ -9,9 +9,15 @@ use tokio::sync::Mutex;
 use super::model_manager::{DownloadProgress, ModelInfo, ModelManager};
 
 const QWEN35_4B_RECOMMENDED_RAM_GB: u64 = 14;
+const GEMMA4_E2B_RECOMMENDED_RAM_GB: u64 = 18;
+const GEMMA4_E4B_RECOMMENDED_RAM_GB: u64 = 24;
 
 pub(crate) fn summary_model_priority(model_name: &str) -> u8 {
     match model_name {
+        "gemma4:e4b" => 8,
+        "gemma4:e2b" => 7,
+        "phi4-mini:3.8b" => 6,
+        "qwen3.5:2b-qwen3.6-distilled" => 5,
         "qwen3.5:4b" => 4,
         "qwen3.5:2b" => 3,
         "gemma3:4b" => 2,
@@ -21,7 +27,11 @@ pub(crate) fn summary_model_priority(model_name: &str) -> u8 {
 }
 
 pub(crate) fn recommend_summary_model(_is_macos: bool, system_ram_gb: u64) -> &'static str {
-    if system_ram_gb >= QWEN35_4B_RECOMMENDED_RAM_GB {
+    if system_ram_gb >= GEMMA4_E4B_RECOMMENDED_RAM_GB {
+        "gemma4:e4b"
+    } else if system_ram_gb >= GEMMA4_E2B_RECOMMENDED_RAM_GB {
+        "gemma4:e2b"
+    } else if system_ram_gb >= QWEN35_4B_RECOMMENDED_RAM_GB {
         "qwen3.5:4b"
     } else {
         "qwen3.5:2b"
@@ -187,7 +197,7 @@ pub async fn builtin_ai_download_model<R: Runtime>(
                 }),
             );
             Ok(())
-        },
+        }
         Err(e) => {
             let error_msg = e.to_string();
 
@@ -271,7 +281,7 @@ pub async fn builtin_ai_is_model_ready<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, ModelManagerState>,
     model_name: String,
-    refresh: Option<bool>,  // NEW: Optional refresh parameter
+    refresh: Option<bool>, // NEW: Optional refresh parameter
 ) -> Result<bool, String> {
     let manager = {
         // Ensure manager is initialized
@@ -343,7 +353,12 @@ pub async fn builtin_ai_get_available_summary_model<R: Runtime>(
     // Find first available summary model
     let available = all_models
         .iter()
-        .filter(|m| matches!(m.status, crate::summary::summary_engine::model_manager::ModelStatus::Available))
+        .filter(|m| {
+            matches!(
+                m.status,
+                crate::summary::summary_engine::model_manager::ModelStatus::Available
+            )
+        })
         .max_by_key(|m| summary_model_priority(&m.name))
         .map(|m| m.name.clone());
 
@@ -355,9 +370,7 @@ pub async fn builtin_ai_get_available_summary_model<R: Runtime>(
 // Startup Initialization & Utility Commands
 // ============================================================================
 
-pub async fn init_model_manager_at_startup<R: Runtime>(
-    app: &AppHandle<R>,
-) -> Result<(), String> {
+pub async fn init_model_manager_at_startup<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     let models_dir = app
         .path()
         .app_data_dir()
@@ -381,11 +394,11 @@ pub async fn init_model_manager_at_startup<R: Runtime>(
     Ok(())
 }
 
-
 /// Get recommended summary model based on platform and system RAM.
-/// macOS → qwen3.5:4b
-/// non-macOS + <8GB RAM → qwen3.5:2b
-/// non-macOS + >=8GB RAM → qwen3.5:4b
+/// <14GB RAM → qwen3.5:2b
+/// 14-17GB RAM → qwen3.5:4b
+/// 18-23GB RAM → gemma4:e2b
+/// >=24GB RAM → gemma4:e4b
 #[tauri::command]
 pub async fn builtin_ai_get_recommended_model() -> Result<String, String> {
     let recommended = get_recommended_summary_model_for_current_system()?;
@@ -424,7 +437,29 @@ mod tests {
     }
 
     #[test]
-    fn available_summary_model_priority_prefers_qwen_over_gemma() {
+    fn recommended_summary_model_uses_gemma4_e2b_on_higher_memory_systems() {
+        assert_eq!(recommend_summary_model(true, 18), "gemma4:e2b");
+        assert_eq!(recommend_summary_model(false, 23), "gemma4:e2b");
+    }
+
+    #[test]
+    fn recommended_summary_model_uses_gemma4_e4b_on_high_memory_systems() {
+        assert_eq!(recommend_summary_model(true, 24), "gemma4:e4b");
+        assert_eq!(recommend_summary_model(false, 32), "gemma4:e4b");
+    }
+
+    #[test]
+    fn available_summary_model_priority_prefers_newer_models_over_legacy_models() {
+        assert!(summary_model_priority("gemma4:e4b") > summary_model_priority("gemma4:e2b"));
+        assert!(summary_model_priority("gemma4:e2b") > summary_model_priority("phi4-mini:3.8b"));
+        assert!(
+            summary_model_priority("phi4-mini:3.8b")
+                > summary_model_priority("qwen3.5:2b-qwen3.6-distilled")
+        );
+        assert!(
+            summary_model_priority("qwen3.5:2b-qwen3.6-distilled")
+                > summary_model_priority("qwen3.5:4b")
+        );
         assert!(summary_model_priority("qwen3.5:4b") > summary_model_priority("qwen3.5:2b"));
         assert!(summary_model_priority("qwen3.5:2b") > summary_model_priority("gemma3:4b"));
         assert!(summary_model_priority("gemma3:4b") > summary_model_priority("gemma3:1b"));

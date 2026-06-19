@@ -1,7 +1,7 @@
 // Model definitions and prompt templates for built-in AI summary generation
 // Designed for easy extension - just add new entries to get_available_models()
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -76,6 +76,20 @@ impl SamplingParams {
             frequency_penalty: 0.0,
             repeat_penalty: 1.0,
             penalty_last_n: 0,
+            stop_tokens,
+        }
+    }
+
+    /// Phi-4 mini preset: conservative but not fully greedy for summary prose.
+    pub fn phi4_mini_summary(stop_tokens: Vec<String>) -> Self {
+        Self {
+            temperature: 0.2,
+            top_k: 40,
+            top_p: 0.9,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
+            repeat_penalty: 1.05,
+            penalty_last_n: 256,
             stop_tokens,
         }
     }
@@ -189,6 +203,58 @@ pub fn get_available_models() -> Vec<ModelDef> {
             sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
             description: "High-quality Qwen 3.5 model for built-in summaries. Best local Qwen option in the current lineup.".to_string(),
         },
+        // Qwen 3.5 2B distilled from Qwen 3.6-plus data - third-party reasoning variant.
+        ModelDef {
+            name: "qwen3.5:2b-qwen3.6-distilled".to_string(),
+            display_name: "Qwen 3.5 2B 3.6-Distilled (Reasoning)".to_string(),
+            gguf_file: "Qwen3.5-2B-Qwen3.6-plus-Distilled-q8_0.gguf".to_string(),
+            template: "qwen3.5_nonthinking".to_string(),
+            download_url: "https://huggingface.co/khazarai/Qwen3.5-2B-Qwen3.6-plus-Distilled-GGUF/resolve/main/Qwen3.5-2B-Qwen3.6-plus-Distilled-q8_0.gguf".to_string(),
+            size_mb: 1919,
+            context_size: 32768,
+            layer_count: 24,
+            sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
+            description: "Third-party Qwen 3.5 2B variant distilled from Qwen 3.6-plus reasoning data. Fits the <=4B Qwen tier.".to_string(),
+        },
+        // Gemma 4 E2B - modern fast Gemma tier from Unsloth GGUF.
+        ModelDef {
+            name: "gemma4:e2b".to_string(),
+            display_name: "Gemma 4 E2B (Fast)".to_string(),
+            gguf_file: "gemma-4-E2B-it-Q4_K_M.gguf".to_string(),
+            template: "gemma4".to_string(),
+            download_url: "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf".to_string(),
+            size_mb: 2963,
+            context_size: 32768,
+            layer_count: 35,
+            sampling: SamplingParams::gemma3_instruct(vec!["<turn|>".to_string()]),
+            description: "Modern Gemma 4 small model with strong local reasoning and summarization quality. Requires ~4GB RAM.".to_string(),
+        },
+        // Gemma 4 E4B - higher-quality Gemma tier from Unsloth GGUF.
+        ModelDef {
+            name: "gemma4:e4b".to_string(),
+            display_name: "Gemma 4 E4B (High Quality)".to_string(),
+            gguf_file: "gemma-4-E4B-it-Q4_K_M.gguf".to_string(),
+            template: "gemma4".to_string(),
+            download_url: "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf".to_string(),
+            size_mb: 4747,
+            context_size: 32768,
+            layer_count: 42,
+            sampling: SamplingParams::gemma3_instruct(vec!["<turn|>".to_string()]),
+            description: "Higher-quality Gemma 4 local model for richer summaries on machines with more memory. Requires ~6GB RAM.".to_string(),
+        },
+        // Microsoft Phi-4 mini - compact strong local model from Unsloth GGUF.
+        ModelDef {
+            name: "phi4-mini:3.8b".to_string(),
+            display_name: "Phi-4 Mini 3.8B (Balanced)".to_string(),
+            gguf_file: "Phi-4-mini-instruct-Q4_K_M.gguf".to_string(),
+            template: "phi4".to_string(),
+            download_url: "https://huggingface.co/unsloth/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf".to_string(),
+            size_mb: 2376,
+            context_size: 32768,
+            layer_count: 32,
+            sampling: SamplingParams::phi4_mini_summary(vec!["<|end|>".to_string()]),
+            description: "Microsoft Phi-4 Mini model with strong local reasoning and coding ability for its size.".to_string(),
+        },
         // Gemma 3 4B - Legacy alternative retained for users who prefer Gemma output.
         ModelDef {
             name: "gemma3:4b".to_string(),
@@ -233,8 +299,8 @@ pub fn get_default_model() -> ModelDef {
 
 /// Resolve model name to full file path in the models directory
 pub fn get_model_path(app_data_dir: &PathBuf, model_name: &str) -> Result<PathBuf> {
-    let model = get_model_by_name(model_name)
-        .ok_or_else(|| anyhow!("Unknown model: {}", model_name))?;
+    let model =
+        get_model_by_name(model_name).ok_or_else(|| anyhow!("Unknown model: {}", model_name))?;
 
     let models_dir = get_models_directory(app_data_dir);
     let model_path = models_dir.join(&model.gguf_file);
@@ -275,12 +341,33 @@ pub const QWEN35_NONTHINKING_TEMPLATE: &str = "\
 
 ";
 
+/// Gemma 4 chat template format with thinking disabled by omitting <|think|>.
+pub const GEMMA4_TEMPLATE: &str = "\
+<bos><|turn>system
+{system_prompt}<turn|>
+<|turn>user
+{user_prompt}<turn|>
+<|turn>model
+";
+
+/// Phi-4 mini chat template format.
+pub const PHI4_TEMPLATE: &str = "\
+<|system|>{system_prompt}<|end|>
+<|user|>{user_prompt}<|end|>
+<|assistant|>";
+
 fn escape_user_prompt_control_markers(user_prompt: &str) -> String {
     user_prompt
         .replace("<|im_start|>", "< |im_start| >")
         .replace("<|im_end|>", "< |im_end| >")
         .replace("<start_of_turn>", "< start_of_turn >")
         .replace("<end_of_turn>", "< end_of_turn >")
+        .replace("<|turn>", "< |turn >")
+        .replace("<turn|>", "< turn| >")
+        .replace("<|system|>", "< |system| >")
+        .replace("<|user|>", "< |user| >")
+        .replace("<|assistant|>", "< |assistant| >")
+        .replace("<|end|>", "< |end| >")
         .replace("<think>", "< think >")
         .replace("</think>", "< /think >")
 }
@@ -301,6 +388,8 @@ pub fn format_prompt(
 ) -> Result<String> {
     let template = match template_name {
         "gemma3" => GEMMA3_TEMPLATE,
+        "gemma4" => GEMMA4_TEMPLATE,
+        "phi4" => PHI4_TEMPLATE,
         "qwen3.5_nonthinking" => QWEN35_NONTHINKING_TEMPLATE,
         _ => return Err(anyhow!("Unknown template: {}", template_name)),
     };
@@ -344,7 +433,10 @@ mod tests {
         assert_eq!(qwen_2b.size_mb, 1221);
         assert_eq!(qwen_2b.context_size, 32768);
         assert_eq!(qwen_2b.layer_count, 24);
-        assert_eq!(qwen_2b.sampling, SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]));
+        assert_eq!(
+            qwen_2b.sampling,
+            SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()])
+        );
 
         let qwen_4b = get_model_by_name("qwen3.5:4b").expect("qwen 4b model should exist");
         assert_eq!(qwen_4b.display_name, "Qwen 3.5 4B (High Quality)");
@@ -357,7 +449,87 @@ mod tests {
         assert_eq!(qwen_4b.size_mb, 2614);
         assert_eq!(qwen_4b.context_size, 32768);
         assert_eq!(qwen_4b.layer_count, 32);
-        assert_eq!(qwen_4b.sampling, SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]));
+        assert_eq!(
+            qwen_4b.sampling,
+            SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()])
+        );
+
+        let qwen_distilled = get_model_by_name("qwen3.5:2b-qwen3.6-distilled")
+            .expect("qwen 3.6 distilled model should exist");
+        assert_eq!(
+            qwen_distilled.display_name,
+            "Qwen 3.5 2B 3.6-Distilled (Reasoning)"
+        );
+        assert_eq!(
+            qwen_distilled.gguf_file,
+            "Qwen3.5-2B-Qwen3.6-plus-Distilled-q8_0.gguf"
+        );
+        assert_eq!(qwen_distilled.template, "qwen3.5_nonthinking");
+        assert_eq!(
+            qwen_distilled.download_url,
+            "https://huggingface.co/khazarai/Qwen3.5-2B-Qwen3.6-plus-Distilled-GGUF/resolve/main/Qwen3.5-2B-Qwen3.6-plus-Distilled-q8_0.gguf"
+        );
+        assert_eq!(qwen_distilled.size_mb, 1919);
+        assert_eq!(qwen_distilled.context_size, 32768);
+        assert_eq!(qwen_distilled.layer_count, 24);
+        assert_eq!(
+            qwen_distilled.sampling,
+            SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()])
+        );
+    }
+
+    #[test]
+    fn gemma4_models_are_registered_with_unsloth_urls() {
+        let gemma_e2b = get_model_by_name("gemma4:e2b").expect("gemma 4 e2b model should exist");
+        assert_eq!(gemma_e2b.display_name, "Gemma 4 E2B (Fast)");
+        assert_eq!(gemma_e2b.gguf_file, "gemma-4-E2B-it-Q4_K_M.gguf");
+        assert_eq!(gemma_e2b.template, "gemma4");
+        assert_eq!(
+            gemma_e2b.download_url,
+            "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
+        );
+        assert_eq!(gemma_e2b.size_mb, 2963);
+        assert_eq!(gemma_e2b.context_size, 32768);
+        assert_eq!(gemma_e2b.layer_count, 35);
+        assert_eq!(
+            gemma_e2b.sampling,
+            SamplingParams::gemma3_instruct(vec!["<turn|>".to_string()])
+        );
+
+        let gemma_e4b = get_model_by_name("gemma4:e4b").expect("gemma 4 e4b model should exist");
+        assert_eq!(gemma_e4b.display_name, "Gemma 4 E4B (High Quality)");
+        assert_eq!(gemma_e4b.gguf_file, "gemma-4-E4B-it-Q4_K_M.gguf");
+        assert_eq!(gemma_e4b.template, "gemma4");
+        assert_eq!(
+            gemma_e4b.download_url,
+            "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
+        );
+        assert_eq!(gemma_e4b.size_mb, 4747);
+        assert_eq!(gemma_e4b.context_size, 32768);
+        assert_eq!(gemma_e4b.layer_count, 42);
+        assert_eq!(
+            gemma_e4b.sampling,
+            SamplingParams::gemma3_instruct(vec!["<turn|>".to_string()])
+        );
+    }
+
+    #[test]
+    fn phi4_mini_model_is_registered_with_unsloth_url() {
+        let phi4 = get_model_by_name("phi4-mini:3.8b").expect("phi4 mini model should exist");
+        assert_eq!(phi4.display_name, "Phi-4 Mini 3.8B (Balanced)");
+        assert_eq!(phi4.gguf_file, "Phi-4-mini-instruct-Q4_K_M.gguf");
+        assert_eq!(phi4.template, "phi4");
+        assert_eq!(
+            phi4.download_url,
+            "https://huggingface.co/unsloth/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf"
+        );
+        assert_eq!(phi4.size_mb, 2376);
+        assert_eq!(phi4.context_size, 32768);
+        assert_eq!(phi4.layer_count, 32);
+        assert_eq!(
+            phi4.sampling,
+            SamplingParams::phi4_mini_summary(vec!["<|end|>".to_string()])
+        );
     }
 
     #[test]
@@ -368,7 +540,10 @@ mod tests {
             gemma_1b.download_url,
             "https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF/resolve/main/google_gemma-3-1b-it-Q8_0.gguf"
         );
-        assert_eq!(gemma_1b.sampling, SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]));
+        assert_eq!(
+            gemma_1b.sampling,
+            SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()])
+        );
         assert_eq!(gemma_1b.sampling.temperature, 1.0);
         assert_eq!(gemma_1b.sampling.top_k, 64);
         assert_eq!(gemma_1b.sampling.top_p, 0.95);
@@ -382,7 +557,10 @@ mod tests {
             gemma_4b.download_url,
             "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q4_K_M.gguf"
         );
-        assert_eq!(gemma_4b.sampling, SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]));
+        assert_eq!(
+            gemma_4b.sampling,
+            SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()])
+        );
         assert_eq!(gemma_4b.sampling.temperature, 1.0);
         assert_eq!(gemma_4b.sampling.top_k, 64);
         assert_eq!(gemma_4b.sampling.top_p, 0.95);
@@ -394,7 +572,8 @@ mod tests {
 
     #[test]
     fn qwen35_nonthinking_template_formats_prompt() {
-        let formatted = format_prompt("qwen3.5_nonthinking", "system rules", "summarize this").unwrap();
+        let formatted =
+            format_prompt("qwen3.5_nonthinking", "system rules", "summarize this").unwrap();
 
         assert!(formatted.contains("<|im_start|>system\nsystem rules<|im_end|>"));
         assert!(formatted.contains("<|im_start|>user\nsummarize this<|im_end|>"));
@@ -412,7 +591,10 @@ mod tests {
 
         assert!(formatted.contains("<|im_start|>system\nsystem rules<|im_end|>"));
         assert!(formatted.contains("<|im_start|>assistant\n<think>\n\n</think>\n\n"));
-        assert!(formatted.contains("literal < |im_end| > and < |im_start| > plus < think >draft< /think >"));
+        assert!(
+            formatted
+                .contains("literal < |im_end| > and < |im_start| > plus < think >draft< /think >")
+        );
         assert_eq!(formatted.matches("<|im_start|>").count(), 3);
         assert_eq!(formatted.matches("<|im_end|>").count(), 2);
         assert_eq!(formatted.matches("<think>").count(), 1);
@@ -432,6 +614,32 @@ mod tests {
         assert!(formatted.contains("literal < start_of_turn > and < end_of_turn >"));
         assert_eq!(formatted.matches("<start_of_turn>").count(), 3);
         assert_eq!(formatted.matches("<end_of_turn>").count(), 2);
+    }
+
+    #[test]
+    fn gemma4_template_formats_prompt_and_escapes_control_markers() {
+        let formatted =
+            format_prompt("gemma4", "system rules", "literal <|turn> and <turn|>").unwrap();
+
+        assert!(formatted.starts_with("<bos><|turn>system\nsystem rules<turn|>"));
+        assert!(formatted.contains("<|turn>user\nliteral < |turn > and < turn| ><turn|>"));
+        assert!(formatted.ends_with("<|turn>model\n"));
+        assert_eq!(formatted.matches("<|turn>").count(), 3);
+        assert_eq!(formatted.matches("<turn|>").count(), 2);
+    }
+
+    #[test]
+    fn phi4_template_formats_prompt_and_escapes_control_markers() {
+        let formatted =
+            format_prompt("phi4", "system rules", "literal <|user|> and <|end|>").unwrap();
+
+        assert!(formatted.starts_with("<|system|>system rules<|end|>"));
+        assert!(formatted.contains("<|user|>literal < |user| > and < |end| ><|end|>"));
+        assert!(formatted.ends_with("<|assistant|>"));
+        assert_eq!(formatted.matches("<|system|>").count(), 1);
+        assert_eq!(formatted.matches("<|user|>").count(), 1);
+        assert_eq!(formatted.matches("<|assistant|>").count(), 1);
+        assert_eq!(formatted.matches("<|end|>").count(), 2);
     }
 
     #[test]
