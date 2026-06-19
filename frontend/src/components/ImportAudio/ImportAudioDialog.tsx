@@ -76,6 +76,7 @@ export function ImportAudioDialog({
 
   const [title, setTitle] = useState('');
   const [selectedLang, setSelectedLang] = useState(selectedLanguage || 'auto');
+  const [expectedSpeakers, setExpectedSpeakers] = useState('auto');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [titleModifiedByUser, setTitleModifiedByUser] = useState(false);
 
@@ -138,6 +139,7 @@ export function ImportAudioDialog({
       setTitle('');
       setTitleModifiedByUser(false);
       setSelectedLang(selectedLanguage || 'auto');
+      setExpectedSpeakers('auto');
       setShowAdvanced(false);
 
       // Validate preselected file if provided
@@ -186,13 +188,15 @@ export function ImportAudioDialog({
 
   const handleStartImport = async () => {
     if (!fileInfo) return;
+    const expectedSpeakerCount = expectedSpeakers === 'auto' ? null : Number(expectedSpeakers);
 
     await startImport(
       fileInfo.path,
       title || fileInfo.filename,
       isParakeetModel ? null : selectedLang === 'auto' ? null : selectedLang,
       selectedModel?.name || null,
-      selectedModel?.provider || null
+      selectedModel?.provider || null,
+      expectedSpeakerCount
     );
   };
 
@@ -405,6 +409,30 @@ export function ImportAudioDialog({
                           </Select>
                         </div>
                       )}
+
+                      {/* Expected speakers */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Cpu className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">Expected speakers</span>
+                        </div>
+                        <Select value={expectedSpeakers} onValueChange={setExpectedSpeakers}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select expected speakers" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">Auto</SelectItem>
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((count) => (
+                              <SelectItem key={count} value={count.toString()}>
+                                {count} {count === 1 ? 'speaker' : 'speakers'}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Used only for imported-audio speaker identification. Auto allows up to the model default.
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>

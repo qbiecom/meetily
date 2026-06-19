@@ -51,7 +51,8 @@ export interface UseImportAudioReturn {
     title: string,
     language?: string | null,
     model?: string | null,
-    provider?: string | null
+    provider?: string | null,
+    expectedSpeakers?: number | null
   ) => Promise<void>;
   cancelImport: () => Promise<void>;
   reset: () => void;
@@ -208,7 +209,8 @@ export function useImportAudio({
       title: string,
       language?: string | null,
       model?: string | null,
-      provider?: string | null
+      provider?: string | null,
+      expectedSpeakers?: number | null
     ) => {
       isCancelledRef.current = false;
       setStatus('processing');
@@ -222,7 +224,8 @@ export function useImportAudio({
             duration_seconds: fileInfo.duration_seconds.toString(),
             language: language || 'auto',
             model_provider: provider || '',
-            model_name: model || ''
+            model_name: model || '',
+            expected_speakers: expectedSpeakers?.toString() || 'auto'
           });
         }
 
@@ -232,6 +235,7 @@ export function useImportAudio({
           language: language || null,
           model: model || null,
           provider: provider || null,
+          expectedSpeakers: expectedSpeakers || null,
         });
       } catch (err: any) {
         setStatus('error');

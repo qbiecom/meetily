@@ -267,6 +267,7 @@ pub async fn start_import<R: Runtime>(
     language: Option<String>,
     model: Option<String>,
     provider: Option<String>,
+    expected_speakers: Option<u32>,
 ) -> Result<ImportResult> {
     // Acquire guard - ensures flag is cleared even on panic/early return
     let _guard = ImportGuard::acquire().map_err(|e| anyhow!(e))?;
@@ -275,7 +276,16 @@ pub async fn start_import<R: Runtime>(
     IMPORT_CANCELLED.store(false, Ordering::SeqCst);
 
     let use_parakeet = provider.as_deref() == Some("parakeet");
-    let result = run_import(app.clone(), source_path, title, language, model, provider).await;
+    let result = run_import(
+        app.clone(),
+        source_path,
+        title,
+        language,
+        model,
+        provider,
+        expected_speakers,
+    )
+    .await;
 
     // Unload the engine after the batch job (success, failure, or cancellation)
     super::common::unload_engine_after_batch(use_parakeet).await;
@@ -316,6 +326,7 @@ async fn run_import<R: Runtime>(
     language: Option<String>,
     model: Option<String>,
     provider: Option<String>,
+    expected_speakers: Option<u32>,
 ) -> Result<ImportResult> {
     let source = PathBuf::from(&source_path);
 
@@ -550,7 +561,7 @@ async fn run_import<R: Runtime>(
     // Import uses the same on-device diarization session as live recording.
     // Failure only disables speaker labels; transcription/import still succeeds.
     let mut diarization_session = if total_segments > 0 {
-        init_import_diarization_session(&app).await
+        init_import_diarization_session(&app, expected_speakers).await
     } else {
         None
     };
@@ -824,6 +835,7 @@ async fn ready_import_diarization_model_id<R: Runtime>(app: &AppHandle<R>) -> Op
 /// imported transcripts so the import itself is never blocked.
 async fn init_import_diarization_session<R: Runtime>(
     app: &AppHandle<R>,
+    expected_speakers: Option<u32>,
 ) -> Option<crate::diarization::DiarizationSession> {
     if ready_import_diarization_model_id(app).await.is_none() {
         warn!(
@@ -875,8 +887,12 @@ async fn init_import_diarization_session<R: Runtime>(
     };
     let profile_count = profiles.len();
 
-    let session_config =
+    let mut session_config =
         crate::diarization::models::import_session_config_for_model_id(&selected_model_id);
+    if let Some(expected_speakers) = expected_speakers {
+        session_config.clustering.max_anonymous_speakers = expected_speakers.clamp(1, 20) as usize;
+    }
+
     match crate::diarization::DiarizationSession::with_profiles_and_config(
         &model_path,
         profiles,
@@ -884,9 +900,10 @@ async fn init_import_diarization_session<R: Runtime>(
     ) {
         Ok(session) => {
             info!(
-                "🎙️ ✅ Speaker identification active for imported audio ({} saved profile{})",
+                "🎙️ ✅ Speaker identification active for imported audio ({} saved profile{}, max speakers={})",
                 profile_count,
-                if profile_count == 1 { "" } else { "s" }
+                if profile_count == 1 { "" } else { "s" },
+                session_config.clustering.max_anonymous_speakers
             );
             Some(session)
         }
@@ -1339,6 +1356,7 @@ pub async fn start_import_audio_command<R: Runtime>(
     language: Option<String>,
     model: Option<String>,
     provider: Option<String>,
+    expected_speakers: Option<u32>,
 ) -> Result<ImportStarted, String> {
     // Check if import is already in progress (guard will be acquired in start_import)
     if IMPORT_IN_PROGRESS.load(Ordering::SeqCst) {
@@ -1347,7 +1365,16 @@ pub async fn start_import_audio_command<R: Runtime>(
 
     // Spawn import in background
     tauri::async_runtime::spawn(async move {
-        let result = start_import(app, source_path, title, language, model, provider).await;
+        let result = start_import(
+            app,
+            source_path,
+            title,
+            language,
+            model,
+            provider,
+            expected_speakers,
+        )
+        .await;
 
         if let Err(e) = result {
             error!("Import failed: {}", e);
