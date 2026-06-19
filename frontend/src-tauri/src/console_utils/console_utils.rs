@@ -7,7 +7,7 @@ use std::process::Command;
 
 #[cfg(target_os = "windows")]
 #[link(name = "kernel32")]
-extern "system" {
+unsafe extern "system" {
     fn AllocConsole() -> i32;
     #[allow(dead_code)]
     fn FreeConsole() -> i32;
