@@ -5,6 +5,7 @@
     "main": "electron/main.js",
     "scripts": {
         "dev": "next dev --webpack -p 3118",
+        "prebuild": "node scripts/clean-next-build.js",
         "build": "next build --webpack",
         "export": "next export",
         "start": "next start -p 3118",
