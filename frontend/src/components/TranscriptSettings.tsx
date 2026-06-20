@@ -7,11 +7,12 @@ import { Label } from './ui/label';
 import { Eye, EyeOff, Lock, Unlock } from 'lucide-react';
 import { ModelManager } from './WhisperModelManager';
 import { ParakeetModelManager } from './ParakeetModelManager';
+import { SherpaOnnxModelManager } from './SherpaOnnxModelManager';
 import { SpeakerIdentificationSettings } from './SpeakerIdentificationSettings';
 
 
 export interface TranscriptModelProps {
-    provider: 'localWhisper' | 'parakeet' | 'deepgram' | 'elevenLabs' | 'groq' | 'openai';
+    provider: 'localWhisper' | 'parakeet' | 'sherpaOnnx' | 'deepgram' | 'elevenLabs' | 'groq' | 'openai';
     model: string;
     apiKey?: string | null;
 }
@@ -35,7 +36,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
     }, [transcriptModelConfig.provider]);
 
     useEffect(() => {
-        if (transcriptModelConfig.provider === 'localWhisper' || transcriptModelConfig.provider === 'parakeet') {
+        if (transcriptModelConfig.provider === 'localWhisper' || transcriptModelConfig.provider === 'parakeet' || transcriptModelConfig.provider === 'sherpaOnnx') {
             setApiKey(null);
         }
     }, [transcriptModelConfig.provider]);
@@ -54,6 +55,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
     const modelOptions = {
         localWhisper: [], // Model selection handled by ModelManager component
         parakeet: [], // Model selection handled by ParakeetModelManager component
+        sherpaOnnx: [], // Model selection handled by SherpaOnnxModelManager component
         deepgram: ['nova-2-phonecall'],
         elevenLabs: ['eleven_multilingual_v2'],
         groq: ['llama-3.3-70b-versatile'],
@@ -96,6 +98,17 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
         }
     };
 
+    const handleSherpaModelSelect = (modelName: string) => {
+        setTranscriptModelConfig({
+            ...transcriptModelConfig,
+            provider: 'sherpaOnnx',
+            model: modelName
+        });
+        if (onModelSelect) {
+            onModelSelect();
+        }
+    };
+
     return (
         <div>
             <div>
@@ -113,7 +126,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                 onValueChange={(value) => {
                                     const provider = value as TranscriptModelProps['provider'];
                                     setUiProvider(provider);
-                                    if (provider !== 'localWhisper' && provider !== 'parakeet') {
+                                    if (provider !== 'localWhisper' && provider !== 'parakeet' && provider !== 'sherpaOnnx') {
                                         fetchApiKey(provider);
                                     }
                                 }}
@@ -123,6 +136,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="parakeet">⚡ Parakeet (Recommended - Real-time / Accurate)</SelectItem>
+                                    <SelectItem value="sherpaOnnx">Sherpa ONNX (CUDA-capable)</SelectItem>
                                     <SelectItem value="localWhisper">🏠 Local Whisper (High Accuracy)</SelectItem>
                                     {/* <SelectItem value="deepgram">☁️ Deepgram (Backup)</SelectItem>
                                     <SelectItem value="elevenLabs">☁️ ElevenLabs</SelectItem>
@@ -131,7 +145,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                 </SelectContent>
                             </Select>
 
-                            {uiProvider !== 'localWhisper' && uiProvider !== 'parakeet' && (
+                            {uiProvider !== 'localWhisper' && uiProvider !== 'parakeet' && uiProvider !== 'sherpaOnnx' && (
                                 <Select
                                     value={transcriptModelConfig.model}
                                     onValueChange={(value) => {
@@ -169,6 +183,15 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                 selectedModel={transcriptModelConfig.provider === 'parakeet' ? transcriptModelConfig.model : undefined}
                                 onModelSelect={handleParakeetModelSelect}
                                 autoSave={true}
+                            />
+                        </div>
+                    )}
+
+                    {uiProvider === 'sherpaOnnx' && (
+                        <div className="mt-6">
+                            <SherpaOnnxModelManager
+                                selectedModel={transcriptModelConfig.provider === 'sherpaOnnx' ? transcriptModelConfig.model : undefined}
+                                onModelSelect={handleSherpaModelSelect}
                             />
                         </div>
                     )}

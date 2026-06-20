@@ -173,13 +173,13 @@ export function ImportAudioDialog({
     const name = selectedModelKey.slice(colonIndex + 1);
     return availableModels.find((m) => m.provider === provider && m.name === name);
   }, [selectedModelKey, availableModels]);
-  const isParakeetModel = selectedModel?.provider === 'parakeet';
+  const isAutoLanguageOnlyModel = selectedModel?.provider === 'parakeet' || selectedModel?.provider === 'sherpaOnnx';
 
   useEffect(() => {
-    if (isParakeetModel && selectedLang !== 'auto') {
+    if (isAutoLanguageOnlyModel && selectedLang !== 'auto') {
       setSelectedLang('auto');
     }
-  }, [isParakeetModel, selectedLang]);
+  }, [isAutoLanguageOnlyModel, selectedLang]);
 
   const handleSelectFile = async () => {
     const info = await selectFile();
@@ -195,7 +195,7 @@ export function ImportAudioDialog({
     await startImport(
       fileInfo.path,
       title || fileInfo.filename,
-      isParakeetModel ? null : selectedLang === 'auto' ? null : selectedLang,
+      isAutoLanguageOnlyModel ? null : selectedLang === 'auto' ? null : selectedLang,
       selectedModel?.name || null,
       selectedModel?.provider || null,
       expectedSpeakerCount,
@@ -353,7 +353,7 @@ export function ImportAudioDialog({
                   {showAdvanced && (
                     <div className="p-3 pt-0 space-y-4 border-t">
                       {/* Language selector */}
-                      {!isParakeetModel ? (
+                      {!isAutoLanguageOnlyModel ? (
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <Globe className="h-4 w-4 text-muted-foreground" />
@@ -379,7 +379,7 @@ export function ImportAudioDialog({
                             <span className="text-sm font-medium">Language</span>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Language selection isn't supported for Parakeet. It always uses automatic detection.
+                            Language selection isn't supported for this model. It always uses automatic detection.
                           </p>
                         </div>
                       )}

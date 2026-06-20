@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex as StdMutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 // Removed unused import
 
 // Performance optimization: Conditional logging macros for hot paths
@@ -52,13 +52,14 @@ pub mod onboarding;
 pub mod openai;
 pub mod openrouter;
 pub mod parakeet_engine;
+pub mod sherpa_engine;
 pub mod state;
 pub mod summary;
 pub mod tray;
 pub mod utils;
 pub mod whisper_engine;
 
-use audio::{list_audio_devices, trigger_audio_permission, AudioDevice};
+use audio::{AudioDevice, list_audio_devices, trigger_audio_permission};
 use log::{error as log_error, info as log_info};
 use notifications::commands::NotificationManagerState;
 use std::sync::Arc;
@@ -307,8 +308,12 @@ async fn start_recording_with_devices_and_meeting<R: Runtime>(
     system_device_name: Option<String>,
     meeting_name: Option<String>,
 ) -> Result<(), String> {
-    log_info!("🚀 CALLED start_recording_with_devices_and_meeting - Mic: {:?}, System: {:?}, Meeting: {:?}",
-             mic_device_name, system_device_name, meeting_name);
+    log_info!(
+        "🚀 CALLED start_recording_with_devices_and_meeting - Mic: {:?}, System: {:?}, Meeting: {:?}",
+        mic_device_name,
+        system_device_name,
+        meeting_name
+    );
 
     // Clone meeting_name for notification use later
     let meeting_name_for_notification = meeting_name.clone();
@@ -471,6 +476,16 @@ pub fn run() {
                 }
             });
 
+            // Set Sherpa ONNX models directory
+            sherpa_engine::commands::set_models_directory(&_app.handle());
+
+            // Initialize Sherpa ONNX engine on startup
+            tauri::async_runtime::spawn(async {
+                if let Err(e) = sherpa_engine::commands::sherpa_init().await {
+                    log::error!("Failed to initialize Sherpa ONNX engine on startup: {}", e);
+                }
+            });
+
             // Initialize ModelManager for summary engine (async, non-blocking)
             let app_handle_for_model_manager = _app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -589,6 +604,21 @@ pub fn run() {
             parakeet_engine::commands::parakeet_cancel_download,
             parakeet_engine::commands::parakeet_delete_corrupted_model,
             parakeet_engine::commands::open_parakeet_models_folder,
+            // Sherpa ONNX engine commands
+            sherpa_engine::commands::sherpa_init,
+            sherpa_engine::commands::sherpa_get_available_models,
+            sherpa_engine::commands::sherpa_load_model,
+            sherpa_engine::commands::sherpa_get_current_model,
+            sherpa_engine::commands::sherpa_is_model_loaded,
+            sherpa_engine::commands::sherpa_has_available_models,
+            sherpa_engine::commands::sherpa_validate_model_ready,
+            sherpa_engine::commands::sherpa_transcribe_audio,
+            sherpa_engine::commands::sherpa_get_models_directory,
+            sherpa_engine::commands::sherpa_get_execution_provider,
+            sherpa_engine::commands::sherpa_set_execution_provider,
+            sherpa_engine::commands::sherpa_download_model,
+            sherpa_engine::commands::sherpa_delete_model,
+            sherpa_engine::commands::open_sherpa_models_folder,
             // Speaker identification (diarization) commands
             diarization::commands::diarization_get_status,
             diarization::commands::diarization_set_enabled,
