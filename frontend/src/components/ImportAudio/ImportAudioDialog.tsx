@@ -227,7 +227,7 @@ export function ImportAudioDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="sm:max-w-[500px]"
+        className="w-[calc(100vw-2rem)] max-w-[500px] min-w-0 overflow-hidden sm:max-w-[500px]"
         onEscapeKeyDown={handleEscapeKeyDown}
         onInteractOutside={handleInteractOutside}
       >
@@ -264,17 +264,19 @@ export function ImportAudioDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="min-w-0 space-y-4 py-4">
           {/* File selection / info */}
           {!isProcessing && !error && (
             <>
               {fileInfo ? (
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div className="flex items-start gap-3">
+                <div className="min-w-0 overflow-hidden bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="flex min-w-0 items-start gap-3">
                     <FileAudio className="h-8 w-8 text-blue-600 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate">{fileInfo.filename}</p>
-                      <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                      <p title={fileInfo.filename} className="truncate font-medium text-gray-900">
+                        {fileInfo.filename}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />
                           {formatDuration(fileInfo.duration_seconds)}
@@ -292,6 +294,7 @@ export function ImportAudioDialog({
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Meeting Title</label>
                     <Input
+                      className="min-w-0"
                       value={title}
                       onChange={(e) => {
                         setTitle(e.target.value);
@@ -327,7 +330,7 @@ export function ImportAudioDialog({
 
               {/* Advanced options (collapsible) */}
               {fileInfo && (
-                <div className="border rounded-lg">
+                <div className="min-w-0 overflow-hidden border rounded-lg">
                   <button
                     onClick={() => setShowAdvanced(!showAdvanced)}
                     className="w-full flex items-center justify-between p-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
