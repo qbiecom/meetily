@@ -1,0 +1,44 @@
+{
+  "name": "Crisis Communications War Room",
+  "description": "Rapid-response template for coordinating public, customer, internal, and executive communications during a crisis.",
+  "sections": [
+    {
+      "title": "Situation Snapshot",
+      "instruction": "Summarize what is known, what is uncertain, current severity, and the latest verified update",
+      "format": "paragraph"
+    },
+    {
+      "title": "Stakeholder Map",
+      "instruction": "List affected audiences, information needs, communication channels, and sentiment if discussed",
+      "format": "list",
+      "item_format": "| **Audience** | **Need / Concern** | **Channel** | **Owner** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Approved Messages",
+      "instruction": "Capture statements, talking points, holding lines, FAQs, and language that has been approved",
+      "format": "list"
+    },
+    {
+      "title": "Do Not Say",
+      "instruction": "List claims, speculative statements, sensitive details, or phrasing participants agreed to avoid",
+      "format": "list"
+    },
+    {
+      "title": "Open Facts To Verify",
+      "instruction": "List unknowns that must be verified before messaging can advance",
+      "format": "list",
+      "item_format": "| **Unknown** | **Verifier** | **Needed By** | **Impact If Unclear** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Outbound Plan",
+      "instruction": "List communications to send, audience, owner, approval path, channel, and target time",
+      "format": "list",
+      "item_format": "| **Message** | **Audience** | **Owner** | **Approval** | **Target Time** |\n| --- | --- | --- | --- | --- |"
+    },
+    {
+      "title": "Escalations",
+      "instruction": "Capture legal, security, executive, customer, media, or regulator escalations and owners",
+      "format": "list"
+    }
+  ]
+}

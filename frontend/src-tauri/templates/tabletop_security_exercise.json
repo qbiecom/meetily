@@ -1,0 +1,45 @@
+{
+  "name": "Tabletop Security Exercise",
+  "description": "Scenario-based security drill template for testing incident response, roles, communication, and decision-making.",
+  "sections": [
+    {
+      "title": "Exercise Scenario",
+      "instruction": "Summarize the simulated threat, starting conditions, assumptions, and exercise scope",
+      "format": "paragraph"
+    },
+    {
+      "title": "Participants & Roles",
+      "instruction": "List participants, response roles, observers, facilitators, and decision authorities",
+      "format": "list",
+      "item_format": "| **Participant** | **Role** | **Responsibility** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Injects & Responses",
+      "instruction": "Capture scenario updates, team responses, decisions made, and rationale",
+      "format": "list",
+      "item_format": "| **Inject / Update** | **Response** | **Decision Owner** | **Rationale** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Control Gaps Found",
+      "instruction": "List gaps in detection, access control, procedures, tooling, communication, or ownership",
+      "format": "list",
+      "item_format": "| **Gap** | **Risk** | **Severity** | **Suggested Fix** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Decision Points",
+      "instruction": "Summarize major decisions, escalation thresholds, legal or compliance considerations, and unresolved debates",
+      "format": "paragraph"
+    },
+    {
+      "title": "Lessons Learned",
+      "instruction": "Capture what worked, what slowed response, and where roles or playbooks need clarification",
+      "format": "list"
+    },
+    {
+      "title": "Remediation Backlog",
+      "instruction": "List corrective actions, owners, priorities, due dates, and verification method",
+      "format": "list",
+      "item_format": "| **Owner** | **Remediation** | **Priority** | **Due Date** | **Verification** |\n| --- | --- | --- | --- | --- |"
+    }
+  ]
+}

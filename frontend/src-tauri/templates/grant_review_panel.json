@@ -1,0 +1,44 @@
+{
+  "name": "Grant Review Panel",
+  "description": "Evaluation panel template for grants, fellowships, awards, accelerators, and funding decisions.",
+  "sections": [
+    {
+      "title": "Application Context",
+      "instruction": "Grant program, applicant or proposal ID, reviewers, conflict declarations, and funding amount requested",
+      "format": "string"
+    },
+    {
+      "title": "Proposal Summary",
+      "instruction": "Summarize the applicant's goal, target population, approach, requested support, and expected outcomes",
+      "format": "paragraph"
+    },
+    {
+      "title": "Evaluation Scores",
+      "instruction": "Capture scores, criteria, reviewer rationale, and any spread or disagreement among reviewers",
+      "format": "list",
+      "item_format": "| **Criterion** | **Score** | **Rationale** | **Reviewer Notes** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Strengths",
+      "instruction": "List proposal strengths, evidence quality, feasibility, team credibility, and potential impact",
+      "format": "list"
+    },
+    {
+      "title": "Concerns & Conditions",
+      "instruction": "List concerns, missing evidence, budget issues, eligibility questions, or conditions for funding",
+      "format": "list",
+      "item_format": "| **Concern / Condition** | **Impact** | **Resolution Needed** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Panel Deliberation",
+      "instruction": "Summarize major discussion points, disagreements, recusal notes, and consensus-building process",
+      "format": "paragraph"
+    },
+    {
+      "title": "Recommendation",
+      "instruction": "State funding recommendation, amount, conditions, ranking, and follow-up actions",
+      "format": "list",
+      "item_format": "| **Recommendation** | **Amount** | **Conditions** | **Follow-up Owner** |\n| --- | --- | --- | --- |"
+    }
+  ]
+}

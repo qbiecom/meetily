@@ -1,0 +1,45 @@
+{
+  "name": "AI Prompt Tuning Session",
+  "description": "Collaborative session for improving AI prompts, model behavior, evaluation criteria, and guardrails.",
+  "sections": [
+    {
+      "title": "Prompt Goal",
+      "instruction": "Describe the target user task, model output, audience, and constraints for the prompt",
+      "format": "paragraph"
+    },
+    {
+      "title": "Current Prompt / System Behavior",
+      "instruction": "Summarize the current prompt, model behavior, known failure modes, and examples discussed",
+      "format": "paragraph"
+    },
+    {
+      "title": "Test Cases",
+      "instruction": "List sample inputs, expected outputs, edge cases, and adversarial or ambiguous cases",
+      "format": "list",
+      "item_format": "| **Case** | **Input Type** | **Expected Behavior** | **Risk Covered** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Prompt Changes Proposed",
+      "instruction": "Capture wording changes, instruction hierarchy changes, examples, constraints, or formatting changes proposed",
+      "format": "list",
+      "item_format": "| **Change** | **Reason** | **Expected Effect** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Evaluation Rubric",
+      "instruction": "List quality criteria, pass/fail checks, scoring rules, and unacceptable behaviors",
+      "format": "list",
+      "item_format": "| **Criterion** | **Pass Condition** | **Failure Example** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Safety & Guardrails",
+      "instruction": "Summarize safety constraints, refusal behavior, privacy concerns, and escalation rules discussed",
+      "format": "paragraph"
+    },
+    {
+      "title": "Iteration Plan",
+      "instruction": "List follow-up tests, owners, deadlines, and release or rollback considerations",
+      "format": "list",
+      "item_format": "| **Owner** | **Task** | **Due Date** | **Success Measure** |\n| --- | --- | --- | --- |"
+    }
+  ]
+}

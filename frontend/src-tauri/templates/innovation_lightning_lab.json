@@ -1,0 +1,45 @@
+{
+  "name": "Innovation Lightning Lab",
+  "description": "Fast ideation workshop template for generating, stress-testing, and selecting unconventional ideas.",
+  "sections": [
+    {
+      "title": "Challenge Prompt",
+      "instruction": "State the problem, constraint, customer, or future scenario the group explored",
+      "format": "string"
+    },
+    {
+      "title": "Wild Ideas",
+      "instruction": "List raw ideas, including impractical or provocative ones, without over-polishing",
+      "format": "list",
+      "item_format": "| **Idea** | **Spark / Inspiration** | **Proposer** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Patterns & Themes",
+      "instruction": "Summarize clusters, repeated concepts, surprising connections, or emerging opportunity areas",
+      "format": "paragraph"
+    },
+    {
+      "title": "Assumption Breakers",
+      "instruction": "List assumptions the team challenged and what became possible when those assumptions were removed",
+      "format": "list",
+      "item_format": "| **Assumption** | **Alternative View** | **New Possibility** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Shortlisted Concepts",
+      "instruction": "Capture ideas selected for further exploration, why they stood out, and expected value",
+      "format": "list",
+      "item_format": "| **Concept** | **Why It Matters** | **Confidence** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Experiment Cards",
+      "instruction": "Define lightweight experiments, success signals, owners, and time boxes",
+      "format": "list",
+      "item_format": "| **Experiment** | **Hypothesis** | **Owner** | **Time Box** | **Success Signal** |\n| --- | --- | --- | --- | --- |"
+    },
+    {
+      "title": "Discarded But Interesting",
+      "instruction": "List ideas not selected now but worth saving for future sessions",
+      "format": "list"
+    }
+  ]
+}

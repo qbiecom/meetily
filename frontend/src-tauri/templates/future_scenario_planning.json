@@ -1,0 +1,46 @@
+{
+  "name": "Future Scenario Planning",
+  "description": "Strategic foresight template for exploring plausible futures, weak signals, strategic options, and no-regret moves.",
+  "sections": [
+    {
+      "title": "Focal Question",
+      "instruction": "State the future-oriented question, time horizon, domain, and strategic decision being informed",
+      "format": "string"
+    },
+    {
+      "title": "Signals & Drivers",
+      "instruction": "List weak signals, trends, uncertainties, constraints, and forces shaping the future",
+      "format": "list",
+      "item_format": "| **Signal / Driver** | **Evidence** | **Direction Of Change** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Scenario Narratives",
+      "instruction": "Summarize each future scenario, including assumptions, conditions, winners, losers, and surprises",
+      "format": "list",
+      "item_format": "| **Scenario** | **Description** | **Key Assumptions** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Implications",
+      "instruction": "Capture implications for customers, operations, technology, policy, partners, and competition",
+      "format": "paragraph"
+    },
+    {
+      "title": "Strategic Options",
+      "instruction": "List options the organization could pursue under one or more scenarios",
+      "format": "list",
+      "item_format": "| **Option** | **Works Best In Scenario** | **Investment Needed** | **Risk** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "No-Regret Moves",
+      "instruction": "List actions that appear useful across multiple scenarios and can start soon",
+      "format": "list",
+      "item_format": "| **Move** | **Why It Is Robust** | **Owner** | **First Step** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Watchlist",
+      "instruction": "Define indicators to monitor that would suggest one scenario is becoming more likely",
+      "format": "list",
+      "item_format": "| **Indicator** | **Scenario Signal** | **Monitor** | **Review Cadence** |\n| --- | --- | --- | --- |"
+    }
+  ]
+}

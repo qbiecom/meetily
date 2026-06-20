@@ -1,0 +1,44 @@
+{
+  "name": "Conflict Mediation",
+  "description": "Neutral meeting template for difficult conversations, disagreement resolution, and rebuilding working agreements.",
+  "sections": [
+    {
+      "title": "Mediation Context",
+      "instruction": "Describe participants, mediator, topic, meeting purpose, and any ground rules stated",
+      "format": "string"
+    },
+    {
+      "title": "Shared Facts",
+      "instruction": "List facts or events that participants appear to agree on, avoiding blame or interpretation",
+      "format": "list"
+    },
+    {
+      "title": "Perspectives Heard",
+      "instruction": "Summarize each participant's perspective, needs, emotions, and concerns in neutral language",
+      "format": "list",
+      "item_format": "| **Participant** | **Perspective** | **Need / Concern** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Points Of Tension",
+      "instruction": "Capture unresolved disagreements, misalignments, or interpretations still in conflict",
+      "format": "list"
+    },
+    {
+      "title": "Common Ground",
+      "instruction": "Summarize shared goals, values, constraints, or outcomes participants agreed matter",
+      "format": "paragraph"
+    },
+    {
+      "title": "Working Agreements",
+      "instruction": "List specific behavior changes, boundaries, communication norms, and accountability expectations agreed upon",
+      "format": "list",
+      "item_format": "| **Agreement** | **Applies To** | **How It Will Be Checked** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Follow-up Plan",
+      "instruction": "List next conversations, check-in dates, owners, and any escalation path",
+      "format": "list",
+      "item_format": "| **Owner** | **Follow-up** | **Date** |\n| --- | --- | --- |"
+    }
+  ]
+}

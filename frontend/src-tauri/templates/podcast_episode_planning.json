@@ -1,0 +1,44 @@
+{
+  "name": "Podcast Episode Planning",
+  "description": "Creative production template for planning podcast episodes, guest angles, story beats, and publishing tasks.",
+  "sections": [
+    {
+      "title": "Episode Concept",
+      "instruction": "Capture episode title or working title, core premise, audience, guest, and desired listener takeaway",
+      "format": "paragraph"
+    },
+    {
+      "title": "Story Arc",
+      "instruction": "Summarize the planned narrative flow, main beats, tension, reveal, or progression",
+      "format": "list",
+      "item_format": "| **Beat** | **Purpose** | **Approx. Time** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Questions & Prompts",
+      "instruction": "List host questions, follow-up prompts, and sensitive or must-ask topics",
+      "format": "list"
+    },
+    {
+      "title": "Guest Notes",
+      "instruction": "Summarize guest background, expertise, boundaries, anecdotes, and pre-interview signals",
+      "format": "paragraph"
+    },
+    {
+      "title": "Production Requirements",
+      "instruction": "List recording setup, assets, clips, music, ads, legal releases, and technical needs",
+      "format": "list",
+      "item_format": "| **Requirement** | **Owner** | **Due Date** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Title, Hook & Promotion Ideas",
+      "instruction": "Capture possible episode titles, opening hooks, social clips, newsletter angles, or pull quotes",
+      "format": "list"
+    },
+    {
+      "title": "Publishing Checklist",
+      "instruction": "List post-production, review, publishing, and distribution tasks with owners",
+      "format": "list",
+      "item_format": "| **Owner** | **Task** | **Target Date** |\n| --- | --- | --- |"
+    }
+  ]
+}

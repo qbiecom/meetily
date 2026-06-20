@@ -1,0 +1,44 @@
+{
+  "name": "Decision Pre-Mortem",
+  "description": "A forward-looking risk session that assumes a decision failed and works backward to prevent avoidable failure.",
+  "sections": [
+    {
+      "title": "Decision Under Review",
+      "instruction": "State the proposed decision, owner, deadline, and what success is expected to look like",
+      "format": "string"
+    },
+    {
+      "title": "Imagined Failure Scenario",
+      "instruction": "Describe the fictional future where the decision failed, including symptoms, affected groups, and consequences",
+      "format": "paragraph"
+    },
+    {
+      "title": "Failure Drivers",
+      "instruction": "List reasons participants believe the decision could fail, grouped by evidence, uncertainty, or intuition",
+      "format": "list",
+      "item_format": "| **Failure Driver** | **Signal / Evidence** | **Likelihood** | **Impact** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Blind Spots",
+      "instruction": "Capture assumptions, missing voices, weak data, incentives, or constraints that may be underweighted",
+      "format": "list"
+    },
+    {
+      "title": "Tripwires & Early Warnings",
+      "instruction": "Define leading indicators that would show the decision is drifting toward failure",
+      "format": "list",
+      "item_format": "| **Tripwire** | **Threshold** | **Monitor** | **Response** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Preventive Moves",
+      "instruction": "List changes, experiments, mitigations, or decision constraints that reduce failure risk",
+      "format": "list",
+      "item_format": "| **Move** | **Owner** | **Due Date** | **Risk Reduced** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Decision Confidence",
+      "instruction": "Summarize whether confidence increased, decreased, or stayed the same, and why",
+      "format": "paragraph"
+    }
+  ]
+}

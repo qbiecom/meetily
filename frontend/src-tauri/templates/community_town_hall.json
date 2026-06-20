@@ -1,0 +1,44 @@
+{
+  "name": "Community Town Hall",
+  "description": "Public forum template for capturing community concerns, commitments, questions, and accountable follow-up.",
+  "sections": [
+    {
+      "title": "Event Context",
+      "instruction": "Date, location or modality, hosts, topic, audience, and estimated attendance",
+      "format": "string"
+    },
+    {
+      "title": "Opening Message",
+      "instruction": "Summarize the host's framing, goals, constraints, and commitments made at the start",
+      "format": "paragraph"
+    },
+    {
+      "title": "Community Questions",
+      "instruction": "List questions asked, who asked if appropriate, response given, and whether follow-up is needed",
+      "format": "list",
+      "item_format": "| **Question / Concern** | **Response** | **Follow-up Needed** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Sentiment & Themes",
+      "instruction": "Summarize recurring themes, emotional tone, trust issues, priorities, and areas of alignment",
+      "format": "paragraph"
+    },
+    {
+      "title": "Commitments Made",
+      "instruction": "List commitments, promises, policy positions, deadlines, and accountable parties",
+      "format": "list",
+      "item_format": "| **Commitment** | **Owner** | **Deadline** | **Public Update Channel** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Unanswered Questions",
+      "instruction": "Capture questions or concerns not fully answered during the town hall",
+      "format": "list"
+    },
+    {
+      "title": "Follow-up Communications",
+      "instruction": "List updates, documents, meetings, or announcements that should follow the event",
+      "format": "list",
+      "item_format": "| **Communication** | **Audience** | **Owner** | **Target Date** |\n| --- | --- | --- | --- |"
+    }
+  ]
+}
