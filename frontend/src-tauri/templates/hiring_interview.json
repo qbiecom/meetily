@@ -1,0 +1,44 @@
+{
+  "name": "Hiring Interview Debrief",
+  "description": "Candidate interview debrief template for collecting evidence, ratings, concerns, and hiring recommendations.",
+  "sections": [
+    {
+      "title": "Candidate & Role",
+      "instruction": "Candidate name or ID, role, level, interview stage, interviewers, and date",
+      "format": "string"
+    },
+    {
+      "title": "Interview Focus",
+      "instruction": "Summarize the competencies, skills, scenarios, or exercises assessed in this interview",
+      "format": "paragraph"
+    },
+    {
+      "title": "Evidence Collected",
+      "instruction": "List concrete evidence from candidate responses, work samples, examples, or exercises",
+      "format": "list",
+      "item_format": "| **Competency** | **Evidence** | **Signal Strength** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Strengths",
+      "instruction": "Summarize demonstrated strengths tied to job requirements and specific interview evidence",
+      "format": "list"
+    },
+    {
+      "title": "Concerns & Gaps",
+      "instruction": "List concerns, missing signals, skill gaps, and areas requiring additional validation",
+      "format": "list",
+      "item_format": "| **Concern / Gap** | **Evidence** | **Follow-up Needed** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Recommendation",
+      "instruction": "State the recommendation, confidence level, rationale, and any calibration notes",
+      "format": "paragraph"
+    },
+    {
+      "title": "Follow-up Actions",
+      "instruction": "List next steps such as additional interviews, reference checks, compensation review, or candidate communication",
+      "format": "list",
+      "item_format": "| **Owner** | **Action** | **Due Date** |\n| --- | --- | --- |"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "name": "Quarterly Business Review",
+  "description": "Executive QBR template for performance review, strategic alignment, risks, and account or business planning.",
+  "sections": [
+    {
+      "title": "Review Scope",
+      "instruction": "Quarter, business unit or account, participants, facilitator, and review objective",
+      "format": "string"
+    },
+    {
+      "title": "Executive Summary",
+      "instruction": "Provide a concise summary of performance, strategic themes, key risks, and major decisions",
+      "format": "paragraph"
+    },
+    {
+      "title": "Performance Metrics",
+      "instruction": "Capture KPIs, targets, actuals, trend, and commentary discussed during the review",
+      "format": "list",
+      "item_format": "| **KPI** | **Target** | **Actual** | **Trend** | **Commentary** |\n| --- | --- | --- | --- | --- |"
+    },
+    {
+      "title": "Highlights & Wins",
+      "instruction": "List major successes, milestones, customer outcomes, launches, or operational improvements",
+      "format": "list"
+    },
+    {
+      "title": "Risks, Issues & Dependencies",
+      "instruction": "Summarize risks, active issues, dependencies, escalations, and mitigation owners",
+      "format": "list",
+      "item_format": "| **Risk / Issue** | **Impact** | **Mitigation** | **Owner** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Strategic Decisions",
+      "instruction": "Capture decisions about investment, priorities, resourcing, account strategy, or operating model changes",
+      "format": "list",
+      "item_format": "| **Decision** | **Rationale** | **Expected Outcome** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Next Quarter Plan",
+      "instruction": "List priorities, initiatives, owners, success metrics, and expected dates for the next quarter",
+      "format": "list",
+      "item_format": "| **Priority** | **Owner** | **Success Metric** | **Target Date** |\n| --- | --- | --- | --- |"
+    }
+  ]
+}

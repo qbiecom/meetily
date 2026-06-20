@@ -1,0 +1,45 @@
+{
+  "name": "Legal Contract Review",
+  "description": "Contract review meeting template for legal, procurement, commercial, and compliance discussions.",
+  "sections": [
+    {
+      "title": "Review Metadata",
+      "instruction": "Contract name, counterparty, version, reviewers, meeting date, and review stage",
+      "format": "string"
+    },
+    {
+      "title": "Business Context",
+      "instruction": "Summarize the deal, relationship, commercial objective, timeline, and business owner",
+      "format": "paragraph"
+    },
+    {
+      "title": "Clauses Discussed",
+      "instruction": "List contract clauses or sections reviewed, issue raised, proposed language, and owner",
+      "format": "list",
+      "item_format": "| **Clause / Section** | **Issue** | **Proposed Position** | **Owner** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Risk Assessment",
+      "instruction": "Summarize legal, commercial, data, privacy, security, compliance, or operational risks discussed",
+      "format": "list",
+      "item_format": "| **Risk** | **Severity** | **Mitigation / Position** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Negotiation Positions",
+      "instruction": "Capture fallback positions, non-negotiables, acceptable compromises, and escalation points",
+      "format": "paragraph"
+    },
+    {
+      "title": "Approvals Needed",
+      "instruction": "List internal approvals, stakeholders, conditions, and target dates required before signature",
+      "format": "list",
+      "item_format": "| **Approval** | **Approver** | **Condition** | **Target Date** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Next Steps",
+      "instruction": "List drafting, review, negotiation, and communication actions with owners and due dates",
+      "format": "list",
+      "item_format": "| **Owner** | **Action** | **Due Date** |\n| --- | --- | --- |"
+    }
+  ]
+}

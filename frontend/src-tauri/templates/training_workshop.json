@@ -1,0 +1,45 @@
+{
+  "name": "Training Workshop",
+  "description": "Workshop and training session summary template covering learning goals, activities, participation, and follow-ups.",
+  "sections": [
+    {
+      "title": "Session Details",
+      "instruction": "Workshop title, date, facilitator, audience, duration, location or modality",
+      "format": "string"
+    },
+    {
+      "title": "Learning Objectives",
+      "instruction": "List the intended learning outcomes or skills covered in the session",
+      "format": "list"
+    },
+    {
+      "title": "Agenda & Activities",
+      "instruction": "Summarize modules, exercises, demos, discussions, and timing if mentioned",
+      "format": "list",
+      "item_format": "| **Activity / Module** | **Purpose** | **Time Spent** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Participant Questions",
+      "instruction": "Capture notable participant questions, answers given, and any unresolved questions",
+      "format": "list",
+      "item_format": "| **Question** | **Answer / Response** | **Follow-up Needed** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Key Takeaways",
+      "instruction": "Summarize the main concepts, practices, or decisions participants should retain",
+      "format": "paragraph"
+    },
+    {
+      "title": "Materials & Resources",
+      "instruction": "List documents, links, recordings, examples, or tools referenced during the workshop",
+      "format": "list",
+      "item_format": "| **Resource** | **Type** | **URL / Location** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Follow-up Actions",
+      "instruction": "List practice assignments, feedback requests, next sessions, and owners",
+      "format": "list",
+      "item_format": "| **Owner** | **Action** | **Due Date** |\n| --- | --- | --- |"
+    }
+  ]
+}

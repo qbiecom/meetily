@@ -1,0 +1,43 @@
+{
+  "name": "Incident Postmortem",
+  "description": "Blameless incident review template for operational incidents, outages, and reliability events.",
+  "sections": [
+    {
+      "title": "Incident Summary",
+      "instruction": "Provide a concise overview of what happened, when it happened, and the current status",
+      "format": "paragraph"
+    },
+    {
+      "title": "Impact",
+      "instruction": "Describe affected users, systems, regions, business impact, severity, and duration",
+      "format": "paragraph"
+    },
+    {
+      "title": "Timeline",
+      "instruction": "List key timestamps from detection through mitigation and resolution",
+      "format": "list",
+      "item_format": "| **Time** | **Event** | **Source / Owner** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Root Cause & Contributing Factors",
+      "instruction": "Summarize the root cause, proximate causes, contributing conditions, and detection gaps without assigning blame",
+      "format": "paragraph"
+    },
+    {
+      "title": "What Went Well",
+      "instruction": "List effective responses, tools, processes, or communication patterns observed during the incident",
+      "format": "list"
+    },
+    {
+      "title": "What Could Improve",
+      "instruction": "List process, tooling, monitoring, ownership, or communication improvements identified",
+      "format": "list"
+    },
+    {
+      "title": "Corrective Actions",
+      "instruction": "List concrete remediation items with owners, priorities, due dates, and verification criteria",
+      "format": "list",
+      "item_format": "| **Owner** | **Action** | **Priority** | **Due Date** | **Verification** |\n| --- | --- | --- | --- | --- |"
+    }
+  ]
+}

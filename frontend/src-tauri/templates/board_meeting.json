@@ -1,0 +1,44 @@
+{
+  "name": "Board Meeting",
+  "description": "Formal board meeting notes covering agenda items, governance decisions, financial updates, and follow-ups.",
+  "sections": [
+    {
+      "title": "Meeting Metadata",
+      "instruction": "Date, time, location or modality, chair, secretary, and quorum status",
+      "format": "string"
+    },
+    {
+      "title": "Attendees & Apologies",
+      "instruction": "List board members, guests, observers, and apologies or absences",
+      "format": "list"
+    },
+    {
+      "title": "Agenda Summary",
+      "instruction": "Summarize the main agenda items and the sequence in which they were discussed",
+      "format": "list"
+    },
+    {
+      "title": "Reports Presented",
+      "instruction": "Capture reports presented, presenter names, key findings, and links or references if mentioned",
+      "format": "list",
+      "item_format": "| **Report** | **Presenter** | **Key Points** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Resolutions & Decisions",
+      "instruction": "List formal resolutions, decisions, approvals, votes, abstentions, and rationale",
+      "format": "list",
+      "item_format": "| **Resolution / Decision** | **Outcome** | **Vote / Approval** | **Rationale** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Risks & Governance Issues",
+      "instruction": "Summarize risks, compliance issues, governance concerns, and mitigations discussed",
+      "format": "paragraph"
+    },
+    {
+      "title": "Action Register",
+      "instruction": "List action items with accountable owners, deadlines, and reporting expectations",
+      "format": "list",
+      "item_format": "| **Owner** | **Action** | **Due Date** | **Reporting Back To** |\n| --- | --- | --- | --- |"
+    }
+  ]
+}

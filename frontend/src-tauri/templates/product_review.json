@@ -1,0 +1,45 @@
+{
+  "name": "Product Review",
+  "description": "Product review meeting for evaluating metrics, customer feedback, roadmap changes, and launch readiness.",
+  "sections": [
+    {
+      "title": "Product Area",
+      "instruction": "Name the product, feature, market, or customer segment reviewed",
+      "format": "string"
+    },
+    {
+      "title": "Review Goal",
+      "instruction": "Explain the purpose of the review and the decision or outcome needed",
+      "format": "paragraph"
+    },
+    {
+      "title": "Metrics Snapshot",
+      "instruction": "Capture quantitative metrics discussed, including target, actual, trend, and interpretation",
+      "format": "list",
+      "item_format": "| **Metric** | **Target** | **Actual** | **Trend** | **Interpretation** |\n| --- | --- | --- | --- | --- |"
+    },
+    {
+      "title": "Customer & Market Feedback",
+      "instruction": "Summarize customer feedback, research signals, support issues, competitive context, or market insights",
+      "format": "paragraph"
+    },
+    {
+      "title": "Open Product Questions",
+      "instruction": "List unresolved product, UX, technical, or go-to-market questions requiring follow-up",
+      "format": "list",
+      "item_format": "| **Question** | **Owner** | **Needed By** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Decisions & Roadmap Changes",
+      "instruction": "Capture decisions, prioritization changes, scope changes, or roadmap adjustments",
+      "format": "list",
+      "item_format": "| **Decision** | **Impact** | **Rationale** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Next Steps",
+      "instruction": "List concrete follow-up actions, owners, due dates, and dependencies",
+      "format": "list",
+      "item_format": "| **Owner** | **Action** | **Due Date** | **Dependency** |\n| --- | --- | --- | --- |"
+    }
+  ]
+}

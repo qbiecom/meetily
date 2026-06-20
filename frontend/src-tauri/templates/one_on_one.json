@@ -1,0 +1,44 @@
+{
+  "name": "One-on-One Meeting",
+  "description": "Manager and direct report check-in focused on priorities, feedback, blockers, and growth.",
+  "sections": [
+    {
+      "title": "Meeting Metadata",
+      "instruction": "Date, participants, meeting cadence, and whether this is a recurring or ad hoc check-in",
+      "format": "string"
+    },
+    {
+      "title": "Current Priorities",
+      "instruction": "Summarize the employee's current focus areas, commitments, and important deadlines",
+      "format": "list",
+      "item_format": "| **Priority** | **Owner** | **Due Date** | **Status** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Wins & Progress",
+      "instruction": "Capture accomplishments, positive outcomes, and progress since the previous one-on-one",
+      "format": "list"
+    },
+    {
+      "title": "Challenges & Blockers",
+      "instruction": "List blockers, concerns, or areas where support is needed, including impact and proposed help",
+      "format": "list",
+      "item_format": "| **Blocker** | **Impact** | **Support Needed** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Feedback Exchanged",
+      "instruction": "Summarize feedback given by either participant, separating observations from requested changes",
+      "format": "paragraph"
+    },
+    {
+      "title": "Growth & Development",
+      "instruction": "Capture development goals, coaching topics, career interests, or learning opportunities discussed",
+      "format": "paragraph"
+    },
+    {
+      "title": "Action Items",
+      "instruction": "List follow-up tasks with owners and due dates",
+      "format": "list",
+      "item_format": "| **Owner** | **Action** | **Due Date** |\n| --- | --- | --- |"
+    }
+  ]
+}

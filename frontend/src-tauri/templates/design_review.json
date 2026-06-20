@@ -1,0 +1,45 @@
+{
+  "name": "Design Review",
+  "description": "Design critique and review template for product, UX, architecture, or technical designs.",
+  "sections": [
+    {
+      "title": "Design Context",
+      "instruction": "Design name, owner, review stage, problem statement, target users, and linked artifacts if mentioned",
+      "format": "string"
+    },
+    {
+      "title": "Review Objective",
+      "instruction": "Summarize what feedback, decision, or approval was requested from reviewers",
+      "format": "paragraph"
+    },
+    {
+      "title": "Design Summary",
+      "instruction": "Describe the proposed solution, important flows, constraints, assumptions, and tradeoffs",
+      "format": "paragraph"
+    },
+    {
+      "title": "Feedback",
+      "instruction": "List reviewer feedback, categorized by area, severity, and whether it is required or optional",
+      "format": "list",
+      "item_format": "| **Area** | **Feedback** | **Severity** | **Required?** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Open Questions",
+      "instruction": "Capture unresolved design, UX, technical, accessibility, content, or research questions",
+      "format": "list",
+      "item_format": "| **Question** | **Owner** | **Needed By** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Decisions",
+      "instruction": "List decisions made, approvals granted, rejected options, and rationale",
+      "format": "list",
+      "item_format": "| **Decision** | **Rationale** | **Impact** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Revision Actions",
+      "instruction": "List design updates, owner, due date, and review path",
+      "format": "list",
+      "item_format": "| **Owner** | **Change Needed** | **Due Date** | **Review Path** |\n| --- | --- | --- | --- |"
+    }
+  ]
+}

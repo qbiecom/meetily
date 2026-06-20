@@ -1,0 +1,44 @@
+{
+  "name": "User Research Interview",
+  "description": "Structured notes for customer discovery, usability testing, and user research interviews.",
+  "sections": [
+    {
+      "title": "Session Metadata",
+      "instruction": "Date, participant code or persona, interviewer, observer, study name, and consent status",
+      "format": "string"
+    },
+    {
+      "title": "Participant Context",
+      "instruction": "Summarize role, goals, environment, experience level, and relevant background shared by the participant",
+      "format": "paragraph"
+    },
+    {
+      "title": "Research Objectives",
+      "instruction": "List the research questions or hypotheses explored during the interview",
+      "format": "list"
+    },
+    {
+      "title": "Key Observations",
+      "instruction": "Capture behavioral observations, notable quotes, pain points, workarounds, and moments of confusion",
+      "format": "list",
+      "item_format": "| **Observation** | **Evidence / Quote** | **Severity** |\n| --- | --- | --- |"
+    },
+    {
+      "title": "Needs & Motivations",
+      "instruction": "Summarize user needs, motivations, goals, jobs to be done, and success criteria",
+      "format": "paragraph"
+    },
+    {
+      "title": "Usability Issues",
+      "instruction": "List usability problems, affected task, impact, and suggested follow-up",
+      "format": "list",
+      "item_format": "| **Issue** | **Task / Flow** | **Impact** | **Follow-up** |\n| --- | --- | --- | --- |"
+    },
+    {
+      "title": "Insights & Follow-ups",
+      "instruction": "Summarize insights, open questions, and recommended follow-up research or product actions",
+      "format": "list",
+      "item_format": "| **Insight / Follow-up** | **Owner** | **Priority** |\n| --- | --- | --- |"
+    }
+  ]
+}
