@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,9 +7,9 @@ import {
   ParakeetModelInfo,
   ModelStatus,
   ParakeetAPI,
-  getModelDisplayInfo,
   getModelDisplayName,
-  formatFileSize
+  formatFileSize,
+  getModelPerformanceBadge
 } from '../lib/parakeet';
 
 interface ParakeetModelManagerProps {
@@ -113,8 +113,6 @@ export function ParakeetModelManager({
         'parakeet-model-download-complete',
         (event) => {
           const { modelName } = event.payload;
-          const displayInfo = getModelDisplayInfo(modelName);
-          const displayName = displayInfo?.friendlyName || modelName;
 
           setModels(prevModels =>
             prevModels.map(model =>
@@ -133,7 +131,7 @@ export function ParakeetModelManager({
           // Clean up throttle data
           progressThrottleRef.current.delete(modelName);
 
-          toast.success(`${displayInfo?.icon || '✓'} ${displayName} ready!`, {
+          toast.success(`${modelName} ready`, {
             description: 'Model downloaded and ready to use',
             duration: 4000
           });
@@ -153,8 +151,6 @@ export function ParakeetModelManager({
         'parakeet-model-download-error',
         (event) => {
           const { modelName, error } = event.payload;
-          const displayInfo = getModelDisplayInfo(modelName);
-          const displayName = displayInfo?.friendlyName || modelName;
 
           setModels(prevModels =>
             prevModels.map(model =>
@@ -173,7 +169,7 @@ export function ParakeetModelManager({
           // Clean up throttle data
           progressThrottleRef.current.delete(modelName);
 
-          toast.error(`Failed to download ${displayName}`, {
+          toast.error(`Failed to download ${modelName}`, {
             description: error,
             duration: 6000,
             action: {
@@ -208,9 +204,6 @@ export function ParakeetModelManager({
   };
 
   const cancelDownload = async (modelName: string) => {
-    const displayInfo = getModelDisplayInfo(modelName);
-    const displayName = displayInfo?.friendlyName || modelName;
-
     try {
       await ParakeetAPI.cancelDownload(modelName);
 
@@ -231,7 +224,7 @@ export function ParakeetModelManager({
       // Clean up throttle data
       progressThrottleRef.current.delete(modelName);
 
-      toast.info(`${displayName} download cancelled`, {
+      toast.info(`${modelName} download cancelled`, {
         duration: 3000
       });
     } catch (err) {
@@ -246,9 +239,6 @@ export function ParakeetModelManager({
   const downloadModel = async (modelName: string) => {
     if (downloadingModels.has(modelName)) return;
 
-    const displayInfo = getModelDisplayInfo(modelName);
-    const displayName = displayInfo?.friendlyName || modelName;
-
     try {
       setDownloadingModels(prev => new Set([...prev, modelName]));
 
@@ -260,7 +250,7 @@ export function ParakeetModelManager({
         )
       );
 
-      toast.info(`Downloading ${displayName}...`, {
+      toast.info(`Downloading ${modelName}...`, {
         description: 'This may take a few minutes',
         duration: 5000  // Auto-dismiss after 5 seconds
       });
@@ -292,17 +282,12 @@ export function ParakeetModelManager({
       await saveModelSelection(modelName);
     }
 
-    const displayInfo = getModelDisplayInfo(modelName);
-    const displayName = displayInfo?.friendlyName || modelName;
-    toast.success(`Switched to ${displayName}`, {
+    toast.success(`Switched to ${modelName}`, {
       duration: 3000
     });
   };
 
   const deleteModel = async (modelName: string) => {
-    const displayInfo = getModelDisplayInfo(modelName);
-    const displayName = displayInfo?.friendlyName || modelName;
-
     try {
       await ParakeetAPI.deleteCorruptedModel(modelName);
 
@@ -310,7 +295,7 @@ export function ParakeetModelManager({
       const modelList = await ParakeetAPI.getAvailableModels();
       setModels(modelList);
 
-      toast.success(`${displayName} deleted`, {
+      toast.success(`${modelName} deleted`, {
         description: 'Model removed to free up space',
         duration: 3000
       });
@@ -321,7 +306,7 @@ export function ParakeetModelManager({
       }
     } catch (err) {
       console.error('Failed to delete model:', err);
-      toast.error(`Failed to delete ${displayName}`, {
+      toast.error(`Failed to delete ${modelName}`, {
         description: err instanceof Error ? err.message : 'Delete failed',
         duration: 4000
       });
@@ -371,7 +356,6 @@ export function ParakeetModelManager({
           onDownload={() => downloadModel(recommendedModel.name)}
           onCancel={() => cancelDownload(recommendedModel.name)}
           onDelete={() => deleteModel(recommendedModel.name)}
-          isDownloading={downloadingModels.has(recommendedModel.name)}
         />
       )}
 
@@ -392,7 +376,6 @@ export function ParakeetModelManager({
               onDownload={() => downloadModel(model.name)}
               onCancel={() => cancelDownload(model.name)}
               onDelete={() => deleteModel(model.name)}
-              isDownloading={downloadingModels.has(model.name)}
             />
           ))}
         </div>
@@ -421,7 +404,11 @@ interface ModelCardProps {
   onDownload: () => void;
   onCancel: () => void;
   onDelete: () => void;
-  isDownloading: boolean;
+}
+
+function getParakeetVersion(modelName: string): string {
+  const match = modelName.match(/-v(\d+)-/);
+  return match ? `v${match[1]}` : 'Unknown version';
 }
 
 function ModelCard({
@@ -431,14 +418,11 @@ function ModelCard({
   onSelect,
   onDownload,
   onCancel,
-  onDelete,
-  isDownloading
+  onDelete
 }: ModelCardProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const displayInfo = getModelDisplayInfo(model.name);
-  const displayName = displayInfo?.friendlyName || model.name;
-  const icon = displayInfo?.icon || '📦';
-  const tagline = displayInfo?.tagline || model.description || '';
+  const performanceBadge = getModelPerformanceBadge(model.quantization);
+  const modelVersion = getParakeetVersion(model.name);
 
   const isAvailable = model.status === 'Available';
   const isMissing = model.status === 'Missing';
@@ -481,9 +465,8 @@ function ModelCard({
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
             {/* Model Name */}
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-2xl">{icon}</span>
-              <h3 className="font-semibold text-gray-900">{displayName}</h3>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <h3 className="font-semibold text-gray-900 font-mono text-sm sm:text-base">{model.name}</h3>
               {isSelected && isAvailable && (
                 <motion.span
                   initial={{ scale: 0 }}
@@ -495,8 +478,28 @@ function ModelCard({
               )}
             </div>
 
-            {/* Tagline */}
-            <p className="text-sm text-gray-600 ml-9">{tagline}</p>
+            {/* Model Details */}
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                Parakeet TDT 0.6B
+              </span>
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                {modelVersion}
+              </span>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${performanceBadge.color === 'blue' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                {performanceBadge.label}
+              </span>
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                {formatFileSize(model.size_mb)}
+              </span>
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                {model.speed}
+              </span>
+            </div>
+
+            {model.description && (
+              <p className="text-sm text-gray-600">{model.description}</p>
+            )}
           </div>
 
           {/* Status/Action */}

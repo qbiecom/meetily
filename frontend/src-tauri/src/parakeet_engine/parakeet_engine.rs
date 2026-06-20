@@ -173,6 +173,7 @@ impl ParakeetEngine {
         // Sizes match actual download sizes (encoder + decoder + preprocessor + vocab)
         let model_configs = [
             ("parakeet-tdt-0.6b-v3-int8", 670, QuantizationType::Int8, "Ultra Fast (v3)", "Real time on M4 Max, latest version with int8 quantization"),
+            ("parakeet-tdt-0.6b-v3-fp32", 2554, QuantizationType::FP32, "Fast (v3)", "Full precision v3 model with higher memory and disk requirements"),
             ("parakeet-tdt-0.6b-v2-int8", 661, QuantizationType::Int8, "Fast (v2)", "Previous version with int8 quantization, good balance of speed and accuracy"),
         ];
 
@@ -199,6 +200,7 @@ impl ParakeetEngine {
                     ],
                     QuantizationType::FP32 => vec![
                         "encoder-model.onnx",
+                        "encoder-model.onnx.data",
                         "decoder_joint-model.onnx",
                         "nemo128.onnx",
                         "vocab.txt",
@@ -290,7 +292,8 @@ impl ParakeetEngine {
             ]
         } else {
             vec![
-                ("encoder-model.onnx", 2_200_000_000),        // ~2.44 GB, min 2.2 GB
+                ("encoder-model.onnx", 35_000_000),            // ~41.8 MB, min 35 MB
+                ("encoder-model.onnx.data", 2_200_000_000),    // ~2.44 GB, min 2.2 GB
                 ("decoder_joint-model.onnx", 65_000_000),     // ~72 MB, min 65 MB
                 ("nemo128.onnx", 100_000),                    // ~140 KB, min 100 KB
                 ("vocab.txt", 5_000),                         // ~94 KB, min 5 KB
@@ -593,6 +596,8 @@ impl ParakeetEngine {
         // HuggingFace base URL for Parakeet models (version-specific)
         let base_url = if model_name.contains("-v2-") {
             "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main"
+        } else if model_name.contains("-fp32") {
+            "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main"
         } else {
             // Default to v3 for v3 models
             "https://meetily.towardsgeneralintelligence.com/models/parakeet-tdt-0.6b-v3-onnx"
@@ -608,6 +613,7 @@ impl ParakeetEngine {
             ],
             QuantizationType::FP32 => vec![
                 "encoder-model.onnx",
+                "encoder-model.onnx.data",
                 "decoder_joint-model.onnx",
                 "nemo128.onnx",
                 "vocab.txt",
@@ -666,9 +672,10 @@ impl ParakeetEngine {
                 }
             }
             QuantizationType::FP32 => {
-                // FP32 model sizes (encoder has .onnx + .onnx.data)
+                // FP32 model sizes (encoder uses external data file)
                 [
-                    ("encoder-model.onnx", 41_800_000u64 + 2_440_000_000u64), // 41.8 MB + 2.44 GB
+                    ("encoder-model.onnx", 41_800_000u64),                     // 41.8 MB
+                    ("encoder-model.onnx.data", 2_440_000_000u64),             // 2.44 GB
                     ("decoder_joint-model.onnx", 72_500_000u64),               // 72.5 MB
                     ("nemo128.onnx", 140_000u64),                              // 140 KB
                     ("vocab.txt", 93_900u64),                                  // 93.9 KB

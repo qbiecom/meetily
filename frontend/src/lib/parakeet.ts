@@ -28,37 +28,6 @@ export interface ParakeetEngineState {
   error: string | null;
 }
 
-// User-friendly model display configuration
-export interface ModelDisplayInfo {
-  friendlyName: string;
-  icon: string;
-  tagline: string;
-  recommended?: boolean;
-  tier: 'fastest' | 'balanced' | 'precise';
-}
-
-export const MODEL_DISPLAY_CONFIG: Record<string, ModelDisplayInfo> = {
-  'parakeet-tdt-0.6b-v3-int8': {
-    friendlyName: 'Lightning',
-    icon: '⚡',
-    tagline: 'Real time • Best for speed, great accuracy',
-    recommended: true,
-    tier: 'fastest'
-  },
-  'parakeet-tdt-0.6b-v2-int8': {
-    friendlyName: 'Compact',
-    icon: '📦',
-    tagline: 'Real time • Smaller size',
-    tier: 'balanced'
-  },
-  'parakeet-tdt-0.6b-v3-fp32': {
-    friendlyName: 'Precise',
-    icon: '🎯',
-    tagline: '20x real-time • Higher accuracy',
-    tier: 'precise'
-  }
-};
-
 // Model configuration for Parakeet models (matching Rust implementation)
 // Supported models: parakeet-tdt-0.6b in v2 and v3 variants
 // Source: https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx
@@ -98,13 +67,7 @@ export function getModelIcon(accuracy: ModelAccuracy): string {
 
 // Get user-friendly display name for a model
 export function getModelDisplayName(modelName: string): string {
-  const displayInfo = MODEL_DISPLAY_CONFIG[modelName];
-  return displayInfo?.friendlyName || modelName;
-}
-
-// Get model display info (icon, tagline, etc.)
-export function getModelDisplayInfo(modelName: string): ModelDisplayInfo | null {
-  return MODEL_DISPLAY_CONFIG[modelName] || null;
+  return modelName;
 }
 
 export function getStatusColor(status: ModelStatus): string {
