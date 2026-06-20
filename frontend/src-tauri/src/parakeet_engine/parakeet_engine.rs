@@ -173,7 +173,10 @@ impl ParakeetEngine {
         // Sizes match actual download sizes (encoder + decoder + preprocessor + vocab)
         let model_configs = [
             ("parakeet-tdt-0.6b-v3-int8", 670, QuantizationType::Int8, "Ultra Fast (v3)", "Real time on M4 Max, latest version with int8 quantization"),
+            ("parakeet-tdt-0.6b-v3-smoothquant-int8", 670, QuantizationType::Int8, "Ultra Fast (v3 SmoothQuant)", "Community SmoothQuant int8 variant based on Parakeet TDT 0.6B v3"),
             ("parakeet-tdt-0.6b-v3-fp32", 2554, QuantizationType::FP32, "Fast (v3)", "Full precision v3 model with higher memory and disk requirements"),
+            ("parakeet-tdt-0.6b-v3-ptbr-tagarela-int8", 891, QuantizationType::Int8, "Fast (pt-BR)", "Brazilian Portuguese TAGARELA int8 model tuned for pt-BR transcription"),
+            ("parakeet-tdt-0.6b-v3-ptbr-tagarela-fp32", 2550, QuantizationType::FP32, "Fast (pt-BR FP32)", "Full precision Brazilian Portuguese TAGARELA model tuned for pt-BR transcription"),
             ("parakeet-tdt-0.6b-v2-int8", 661, QuantizationType::Int8, "Fast (v2)", "Previous version with int8 quantization, good balance of speed and accuracy"),
         ];
 
@@ -594,7 +597,13 @@ impl ParakeetEngine {
         }
 
         // HuggingFace base URL for Parakeet models (version-specific)
-        let base_url = if model_name.contains("-v2-") {
+        let base_url = if model_name.contains("smoothquant") {
+            "https://huggingface.co/Olicorne/parakeet-tdt-0.6b-v3-smoothquant-onnx/resolve/main"
+        } else if model_name.contains("ptbr-tagarela-int8") {
+            "https://huggingface.co/calneymgp/parakeet-tdt-0.6b-v3-ptBR-TAGARELA-onnx-int8/resolve/main"
+        } else if model_name.contains("ptbr-tagarela-fp32") {
+            "https://huggingface.co/alefiury/parakeet-tdt-0.6b-v3-ptBR-TAGARELA-onnx/resolve/main"
+        } else if model_name.contains("-v2-") {
             "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main"
         } else if model_name.contains("-fp32") {
             "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main"
@@ -660,6 +669,14 @@ impl ParakeetEngine {
                         ("decoder_joint-model.int8.onnx", 9_000_000u64),   // 9 MB
                         ("nemo128.onnx", 140_000u64),                      // 140 KB
                         ("vocab.txt", 9_380u64),                           // 9.38 KB
+                    ].iter().cloned().collect()
+                } else if model_name.contains("ptbr-tagarela-int8") {
+                    // pt-BR TAGARELA int8 model sizes
+                    [
+                        ("encoder-model.int8.onnx", 915_000_000u64),       // ~915 MB
+                        ("decoder_joint-model.int8.onnx", 18_200_000u64),  // 18.2 MB
+                        ("nemo128.onnx", 140_000u64),                      // 140 KB
+                        ("vocab.txt", 93_900u64),                          // 93.9 KB
                     ].iter().cloned().collect()
                 } else {
                     // V3 model sizes (default)

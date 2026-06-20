@@ -39,6 +39,13 @@ export const PARAKEET_MODEL_CONFIGS: Record<string, Partial<ParakeetModelInfo>> 
     speed: 'Ultra Fast',
     quantization: 'Int8'
   },
+  'parakeet-tdt-0.6b-v3-smoothquant-int8': {
+    description: 'Community SmoothQuant int8 variant based on Parakeet TDT 0.6B v3',
+    size_mb: 670,
+    accuracy: 'High',
+    speed: 'Ultra Fast',
+    quantization: 'Int8'
+  },
   'parakeet-tdt-0.6b-v2-int8': {
     description: '25x real-time, smaller size with good accuracy',
     size_mb: 661, // Actual download: 652MB encoder + 9MB decoder + 0.15MB extras
@@ -49,6 +56,20 @@ export const PARAKEET_MODEL_CONFIGS: Record<string, Partial<ParakeetModelInfo>> 
   'parakeet-tdt-0.6b-v3-fp32': {
     description: '20x real-time on M4 Max, higher precision',
     size_mb: 2554, // Actual download: 2.44GB + 41.8MB encoder + 72.5MB decoder + 0.2MB extras
+    accuracy: 'High',
+    speed: 'Fast',
+    quantization: 'FP32'
+  },
+  'parakeet-tdt-0.6b-v3-ptbr-tagarela-int8': {
+    description: 'Brazilian Portuguese TAGARELA int8 model tuned for pt-BR transcription',
+    size_mb: 891,
+    accuracy: 'High',
+    speed: 'Fast',
+    quantization: 'Int8'
+  },
+  'parakeet-tdt-0.6b-v3-ptbr-tagarela-fp32': {
+    description: 'Full precision Brazilian Portuguese TAGARELA model tuned for pt-BR transcription',
+    size_mb: 2550,
     accuracy: 'High',
     speed: 'Fast',
     quantization: 'FP32'
