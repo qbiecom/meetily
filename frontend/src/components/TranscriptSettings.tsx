@@ -192,6 +192,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                             <SherpaOnnxModelManager
                                 selectedModel={transcriptModelConfig.provider === 'sherpaOnnx' ? transcriptModelConfig.model : undefined}
                                 onModelSelect={handleSherpaModelSelect}
+                                autoSave={true}
                             />
                         </div>
                     )}

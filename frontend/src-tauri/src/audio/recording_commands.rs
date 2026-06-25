@@ -720,6 +720,33 @@ pub async fn stop_recording<R: Runtime>(
                 warn!("⚠️ No Parakeet engine found to unload model");
             }
         }
+        Some("sherpaOnnx") => {
+            info!("Unloading Sherpa ONNX model...");
+            let engine_clone = {
+                let engine_guard = crate::sherpa_engine::commands::SHERPA_ENGINE
+                    .lock()
+                    .unwrap();
+                engine_guard.as_ref().cloned()
+            };
+
+            if let Some(engine) = engine_clone {
+                let current_model = engine
+                    .get_current_model()
+                    .await
+                    .unwrap_or_else(|| "unknown".to_string());
+                info!(
+                    "Current Sherpa ONNX model before unload: '{}'",
+                    current_model
+                );
+                engine.unload_model().await;
+                info!(
+                    "Sherpa ONNX model '{}' unloaded successfully",
+                    current_model
+                );
+            } else {
+                warn!("No Sherpa ONNX engine found to unload model");
+            }
+        }
         _ => {
             // Default to Whisper
             info!("🎤 Unloading Whisper model...");

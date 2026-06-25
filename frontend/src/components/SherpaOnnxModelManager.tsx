@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { SherpaAPI, SherpaModelInfo, ModelStatus, formatFileSize } from '../lib/sherpa';
 
 interface SherpaOnnxModelManagerProps {
   selectedModel?: string;
   onModelSelect?: (modelName: string) => void;
+  autoSave?: boolean;
 }
 
-export function SherpaOnnxModelManager({ selectedModel, onModelSelect }: SherpaOnnxModelManagerProps) {
+export function SherpaOnnxModelManager({ selectedModel, onModelSelect, autoSave = false }: SherpaOnnxModelManagerProps) {
   const [models, setModels] = useState<SherpaModelInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [executionProvider, setExecutionProvider] = useState('cpu');
@@ -90,9 +92,24 @@ export function SherpaOnnxModelManager({ selectedModel, onModelSelect }: SherpaO
     await SherpaAPI.downloadModel(modelName);
   };
 
+  const saveModelSelection = async (modelName: string) => {
+    try {
+      await invoke('api_save_transcript_config', {
+        provider: 'sherpaOnnx',
+        model: modelName,
+        apiKey: null
+      });
+    } catch (error) {
+      console.error('Failed to save Sherpa ONNX model selection:', error);
+    }
+  };
+
   const selectModel = async (modelName: string) => {
     await SherpaAPI.loadModel(modelName);
     onModelSelect?.(modelName);
+    if (autoSave) {
+      await saveModelSelection(modelName);
+    }
     toast.success(`Switched to ${modelName}`);
   };
 
