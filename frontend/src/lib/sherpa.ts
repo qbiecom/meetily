@@ -5,6 +5,8 @@ export type QuantizationType = 'FP32' | 'FP16' | 'Int8';
 export type ModelStatus =
   | 'Available'
   | 'Missing'
+  | { Available: null }
+  | { Missing: null }
   | { Downloading: { progress: number } }
   | { Error: string }
   | { Corrupted: { file_size: number; expected_min_size: number } };

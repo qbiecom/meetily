@@ -7,9 +7,15 @@ export interface RawModelInfo {
   status:
     | 'Available'
     | 'Missing'
+    | { Available: null }
+    | { Missing: null }
     | { Downloading: { progress: number } }
     | { Error: string }
     | { Corrupted: { file_size: number; expected_min_size: number } };
+}
+
+function isAvailableStatus(status: RawModelInfo['status']): boolean {
+  return status === 'Available' || (typeof status === 'object' && status !== null && 'Available' in status);
 }
 
 export interface ModelOption {
@@ -54,7 +60,7 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
     try {
       const whisperModels = await invoke<RawModelInfo[]>('whisper_get_available_models');
       const availableWhisper = whisperModels
-        .filter((m) => m.status === 'Available')
+        .filter((m) => isAvailableStatus(m.status))
         .map((m) => ({
           provider: 'whisper' as const,
           name: m.name,
@@ -70,7 +76,7 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
     try {
       const parakeetModels = await invoke<RawModelInfo[]>('parakeet_get_available_models');
       const availableParakeet = parakeetModels
-        .filter((m) => m.status === 'Available')
+        .filter((m) => isAvailableStatus(m.status))
         .map((m) => ({
           provider: 'parakeet' as const,
           name: m.name,
@@ -87,7 +93,7 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
       await invoke('sherpa_init');
       const sherpaModels = await invoke<RawModelInfo[]>('sherpa_get_available_models');
       const availableSherpa = sherpaModels
-        .filter((m) => m.status === 'Available')
+        .filter((m) => isAvailableStatus(m.status))
         .map((m) => ({
           provider: 'sherpaOnnx' as const,
           name: m.name,

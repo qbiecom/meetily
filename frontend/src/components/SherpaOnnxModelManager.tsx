@@ -4,6 +4,14 @@ import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { SherpaAPI, SherpaModelInfo, ModelStatus, formatFileSize } from '../lib/sherpa';
 
+function isStatusAvailable(status: ModelStatus): boolean {
+  return status === 'Available' || (typeof status === 'object' && status !== null && 'Available' in status);
+}
+
+function isStatusMissing(status: ModelStatus): boolean {
+  return status === 'Missing' || (typeof status === 'object' && status !== null && 'Missing' in status);
+}
+
 interface SherpaOnnxModelManagerProps {
   selectedModel?: string;
   onModelSelect?: (modelName: string) => void;
@@ -105,7 +113,6 @@ export function SherpaOnnxModelManager({ selectedModel, onModelSelect, autoSave 
   };
 
   const selectModel = async (modelName: string) => {
-    await SherpaAPI.loadModel(modelName);
     onModelSelect?.(modelName);
     if (autoSave) {
       await saveModelSelection(modelName);
@@ -143,8 +150,8 @@ export function SherpaOnnxModelManager({ selectedModel, onModelSelect, autoSave 
       </div>
 
       {models.map(model => {
-        const isAvailable = model.status === 'Available';
-        const isMissing = model.status === 'Missing';
+        const isAvailable = isStatusAvailable(model.status);
+        const isMissing = isStatusMissing(model.status);
         const isSelected = selectedModel === model.name;
         const downloadProgress = typeof model.status === 'object' && 'Downloading' in model.status
           ? model.status.Downloading.progress
@@ -175,6 +182,15 @@ export function SherpaOnnxModelManager({ selectedModel, onModelSelect, autoSave 
 
               <div className="flex shrink-0 items-center gap-2">
                 {isAvailable && <span className="text-xs font-medium text-green-600">Ready</span>}
+                {isAvailable && (
+                  <button
+                    onClick={(event) => { event.stopPropagation(); selectModel(model.name); }}
+                    className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-default disabled:bg-blue-300"
+                    disabled={isSelected}
+                  >
+                    {isSelected ? 'Selected' : 'Select'}
+                  </button>
+                )}
                 {isAvailable && (
                   <button onClick={(event) => { event.stopPropagation(); deleteModel(model.name); }} className="rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600">Delete</button>
                 )}
