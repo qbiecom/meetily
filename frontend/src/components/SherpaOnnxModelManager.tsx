@@ -71,18 +71,18 @@ export function SherpaOnnxModelManager({ selectedModel, onModelSelect, autoSave 
   }, []);
 
   const handleProviderChange = async (provider: string) => {
+    const previousProvider = executionProvider;
     setExecutionProvider(provider);
-    localStorage.setItem('sherpaExecutionProvider', provider);
-    await SherpaAPI.setExecutionProvider(provider);
-    toast.info(`Sherpa ONNX will use ${provider.toUpperCase()}`);
-  };
-
-  useEffect(() => {
-    const savedProvider = localStorage.getItem('sherpaExecutionProvider');
-    if (savedProvider && savedProvider !== executionProvider) {
-      handleProviderChange(savedProvider).catch(console.error);
+    try {
+      await SherpaAPI.setExecutionProvider(provider);
+      toast.info(`Sherpa ONNX will use ${provider.toUpperCase()}`);
+    } catch (err) {
+      setExecutionProvider(previousProvider);
+      toast.error('Failed to update Sherpa ONNX execution provider', {
+        description: err instanceof Error ? err.message : String(err)
+      });
     }
-  }, [executionProvider]);
+  };
 
   const downloadModel = async (modelName: string) => {
     setModels(prev => prev.map(model =>

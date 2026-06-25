@@ -1279,6 +1279,9 @@ async fn get_or_init_sherpa<R: Runtime>(
     crate::sherpa_engine::commands::sherpa_init()
         .await
         .map_err(|e| anyhow!("Failed to initialize Sherpa ONNX engine: {}", e))?;
+    crate::sherpa_engine::commands::apply_saved_execution_provider(app)
+        .await
+        .map_err(|e| anyhow!(e))?;
 
     let engine = {
         let guard = crate::sherpa_engine::commands::SHERPA_ENGINE

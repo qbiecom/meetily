@@ -480,9 +480,17 @@ pub fn run() {
             sherpa_engine::commands::set_models_directory(&_app.handle());
 
             // Initialize Sherpa ONNX engine on startup
-            tauri::async_runtime::spawn(async {
+            let app_handle_for_sherpa = _app.handle().clone();
+            tauri::async_runtime::spawn(async move {
                 if let Err(e) = sherpa_engine::commands::sherpa_init().await {
                     log::error!("Failed to initialize Sherpa ONNX engine on startup: {}", e);
+                    return;
+                }
+                if let Err(e) =
+                    sherpa_engine::commands::apply_saved_execution_provider(&app_handle_for_sherpa)
+                        .await
+                {
+                    log::error!("Failed to apply Sherpa ONNX execution provider: {}", e);
                 }
             });
 

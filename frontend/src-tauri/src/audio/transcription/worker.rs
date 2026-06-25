@@ -7,13 +7,13 @@ use super::provider::TranscriptionError;
 use crate::audio::AudioChunk;
 use crate::database::repositories::speaker_profile::SpeakerProfilesRepository;
 use crate::diarization::overlap_detector::{
-    detect_overlap_regions_from_timeline, find_overlap_region_for_range, AttributionSource,
-    OverlapDetector, OverlapStatus,
+    AttributionSource, OverlapDetector, OverlapStatus, detect_overlap_regions_from_timeline,
+    find_overlap_region_for_range,
 };
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 // Sequence counter for transcript updates
@@ -82,7 +82,9 @@ async fn init_diarization_session<R: Runtime>(
         return None;
     }
     let selected_model_id = match app.try_state::<crate::state::AppState>() {
-        Some(state) => crate::diarization::commands::selected_model_id(state.db_manager.pool()).await,
+        Some(state) => {
+            crate::diarization::commands::selected_model_id(state.db_manager.pool()).await
+        }
         None => crate::diarization::models::DEFAULT_EMBEDDING_MODEL_ID.to_string(),
     };
     let selected_model_id = match crate::diarization::models::available_embedding_model_id(
@@ -105,13 +107,14 @@ async fn init_diarization_session<R: Runtime>(
             return None;
         }
     };
-    let model_path = match crate::diarization::models::embedding_model_path_for_id(app, &selected_model_id) {
-        Ok(path) => path,
-        Err(e) => {
-            warn!("🎙️ Could not resolve diarization model path: {}", e);
-            return None;
-        }
-    };
+    let model_path =
+        match crate::diarization::models::embedding_model_path_for_id(app, &selected_model_id) {
+            Ok(path) => path,
+            Err(e) => {
+                warn!("🎙️ Could not resolve diarization model path: {}", e);
+                return None;
+            }
+        };
 
     // Seed saved voice profiles so returning speakers are labeled by name
     let profiles = match app.try_state::<crate::state::AppState>() {
@@ -139,7 +142,8 @@ async fn init_diarization_session<R: Runtime>(
     };
     let profile_count = profiles.len();
 
-    let session_config = crate::diarization::models::session_config_for_model_id(&selected_model_id);
+    let session_config =
+        crate::diarization::models::session_config_for_model_id(&selected_model_id);
     match crate::diarization::DiarizationSession::with_profiles_and_config(
         &model_path,
         profiles,
@@ -313,7 +317,10 @@ pub fn start_transcription_task<R: Runtime>(
 
                             // Check if model is still loaded before processing
                             if !engine_clone.is_model_loaded().await {
-                                warn!("⚠️ Worker {}: Model unloaded, but continuing to preserve chunk {}", worker_id, chunk.chunk_id);
+                                warn!(
+                                    "⚠️ Worker {}: Model unloaded, but continuing to preserve chunk {}",
+                                    worker_id, chunk.chunk_id
+                                );
                                 // Still count as completed even if we can't process
                                 chunks_completed_clone.fetch_add(1, Ordering::SeqCst);
                                 continue;
@@ -364,8 +371,14 @@ pub fn start_transcription_task<R: Runtime>(
                                         None => "N/A".to_string(),
                                     };
 
-                                    info!("🔍 Worker {} transcription result: text='{}', confidence={}, partial={}, threshold={:.2}",
-                                          worker_id, transcript, confidence_str, is_partial, confidence_threshold);
+                                    info!(
+                                        "🔍 Worker {} transcription result: text='{}', confidence={}, partial={}, threshold={:.2}",
+                                        worker_id,
+                                        transcript,
+                                        confidence_str,
+                                        is_partial,
+                                        confidence_threshold
+                                    );
 
                                     // Check confidence threshold (or accept if no confidence provided)
                                     let meets_threshold =
@@ -373,25 +386,40 @@ pub fn start_transcription_task<R: Runtime>(
 
                                     if !transcript.trim().is_empty() && meets_threshold {
                                         // PERFORMANCE: Only log transcription results, not every processing step
-                                        info!("✅ Worker {} transcribed: {} (confidence: {}, partial: {})",
-                                              worker_id, transcript, confidence_str, is_partial);
+                                        info!(
+                                            "✅ Worker {} transcribed: {} (confidence: {}, partial: {})",
+                                            worker_id, transcript, confidence_str, is_partial
+                                        );
 
                                         // Emit speech-detected event for frontend UX (only on first detection per session)
                                         // This is lightweight and provides better user feedback
                                         let current_flag =
                                             SPEECH_DETECTED_EMITTED.load(Ordering::SeqCst);
-                                        info!("🔍 Checking speech-detected flag: current={}, will_emit={}", current_flag, !current_flag);
+                                        info!(
+                                            "🔍 Checking speech-detected flag: current={}, will_emit={}",
+                                            current_flag, !current_flag
+                                        );
 
                                         if !current_flag {
                                             SPEECH_DETECTED_EMITTED.store(true, Ordering::SeqCst);
-                                            match app_clone.emit("speech-detected", serde_json::json!({
-                                                "message": "Speech activity detected"
-                                            })) {
-                                                Ok(_) => info!("🎤 ✅ First speech detected - successfully emitted speech-detected event"),
-                                                Err(e) => error!("🎤 ❌ Failed to emit speech-detected event: {}", e),
+                                            match app_clone.emit(
+                                                "speech-detected",
+                                                serde_json::json!({
+                                                    "message": "Speech activity detected"
+                                                }),
+                                            ) {
+                                                Ok(_) => info!(
+                                                    "🎤 ✅ First speech detected - successfully emitted speech-detected event"
+                                                ),
+                                                Err(e) => error!(
+                                                    "🎤 ❌ Failed to emit speech-detected event: {}",
+                                                    e
+                                                ),
                                             }
                                         } else {
-                                            info!("🔍 Speech already detected in this session, not re-emitting");
+                                            info!(
+                                                "🔍 Speech already detected in this session, not re-emitting"
+                                            );
                                         }
 
                                         // Generate sequence ID and calculate timestamps FIRST
@@ -509,7 +537,10 @@ pub fn start_transcription_task<R: Runtime>(
                                     {
                                         // PERFORMANCE: Only log low-confidence results occasionally
                                         if let Some(c) = confidence_opt {
-                                            info!("Worker {} low-confidence transcription (confidence: {:.2}), skipping", worker_id, c);
+                                            info!(
+                                                "Worker {} low-confidence transcription (confidence: {:.2}), skipping",
+                                                worker_id, c
+                                            );
                                         }
                                     }
                                 }
@@ -587,7 +618,10 @@ pub fn start_transcription_task<R: Runtime>(
                                     );
                                     break;
                                 } else {
-                                    warn!("👷 Worker {} detected potential chunk loss: {}/{} completed, waiting...", worker_id, final_completed, final_queued);
+                                    warn!(
+                                        "👷 Worker {} detected potential chunk loss: {}/{} completed, waiting...",
+                                        worker_id, final_completed, final_queued
+                                    );
                                     // AGGRESSIVE POLLING: Reduced from 50ms to 5ms for faster chunk detection during shutdown
                                     tokio::time::sleep(tokio::time::Duration::from_millis(5)).await;
                                 }
@@ -625,8 +659,10 @@ pub fn start_transcription_task<R: Runtime>(
         drop(work_sender); // Close the channel to signal workers
 
         let total_chunks_queued = chunks_queued.load(Ordering::SeqCst);
-        info!("📭 Input finished with {} total chunks queued. Waiting for all {} workers to complete...",
-              total_chunks_queued, NUM_WORKERS);
+        info!(
+            "📭 Input finished with {} total chunks queued. Waiting for all {} workers to complete...",
+            total_chunks_queued, NUM_WORKERS
+        );
 
         // Emit final chunk count to frontend
         let _ = app.emit("transcription-queue-complete", serde_json::json!({
@@ -667,8 +703,10 @@ pub fn start_transcription_task<R: Runtime>(
                 break;
             } else if verification_attempts < MAX_VERIFICATION_ATTEMPTS {
                 verification_attempts += 1;
-                warn!("⚠️ Chunk count mismatch (attempt {}): {} queued, {} completed - waiting for stragglers...",
-                     verification_attempts, final_queued, final_completed);
+                warn!(
+                    "⚠️ Chunk count mismatch (attempt {}): {} queued, {} completed - waiting for stragglers...",
+                    verification_attempts, final_queued, final_completed
+                );
 
                 // Wait a bit for any remaining chunks to be processed
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -692,7 +730,9 @@ pub fn start_transcription_task<R: Runtime>(
             }
         }
 
-        info!("✅ Parallel transcription task completed - all workers finished, ready for model unload");
+        info!(
+            "✅ Parallel transcription task completed - all workers finished, ready for model unload"
+        );
     })
 }
 

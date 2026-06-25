@@ -2,9 +2,12 @@ use crate::sherpa_engine::{SherpaEngine, SherpaModelInfo};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, Runtime, command};
+use tauri_plugin_store::StoreExt;
 
 pub static SHERPA_ENGINE: Mutex<Option<Arc<SherpaEngine>>> = Mutex::new(None);
 static MODELS_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
+const SHERPA_SETTINGS_STORE: &str = "sherpa_settings.json";
+const EXECUTION_PROVIDER_KEY: &str = "executionProvider";
 
 pub fn set_models_directory<R: Runtime>(app: &AppHandle<R>) {
     let app_data_dir = app
@@ -50,6 +53,7 @@ pub async fn sherpa_load_model<R: Runtime>(
     app: AppHandle<R>,
     model_name: String,
 ) -> Result<(), String> {
+    apply_saved_execution_provider(&app).await?;
     let engine = get_engine()?;
     let _ = app.emit(
         "sherpa-model-loading-started",
@@ -90,13 +94,15 @@ pub async fn sherpa_has_available_models() -> Result<bool, String> {
 }
 
 #[command]
-pub async fn sherpa_validate_model_ready() -> Result<String, String> {
+pub async fn sherpa_validate_model_ready<R: Runtime>(app: AppHandle<R>) -> Result<String, String> {
+    apply_saved_execution_provider(&app).await?;
     validate_model_ready(None).await
 }
 
 pub async fn sherpa_validate_model_ready_with_config<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<String, String> {
+    apply_saved_execution_provider(app).await?;
     let configured_model =
         match crate::api::api::api_get_transcript_config(app.clone(), app.state(), None).await {
             Ok(Some(config)) if config.provider == "sherpaOnnx" && !config.model.is_empty() => {
@@ -178,16 +184,24 @@ pub async fn sherpa_get_models_directory() -> Result<String, String> {
 }
 
 #[command]
-pub async fn sherpa_get_execution_provider() -> Result<String, String> {
-    Ok(get_engine()?.get_execution_provider().await)
+pub async fn sherpa_get_execution_provider<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<String, String> {
+    apply_saved_execution_provider(&app).await
 }
 
 #[command]
-pub async fn sherpa_set_execution_provider(provider: String) -> Result<(), String> {
+pub async fn sherpa_set_execution_provider<R: Runtime>(
+    app: AppHandle<R>,
+    provider: String,
+) -> Result<(), String> {
+    let provider = normalize_execution_provider(&provider)?;
     get_engine()?
-        .set_execution_provider(provider)
+        .set_execution_provider(provider.clone())
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    save_execution_provider(&app, &provider)?;
+    Ok(())
 }
 
 #[command]
@@ -263,4 +277,62 @@ fn get_engine() -> Result<Arc<SherpaEngine>, String> {
         .as_ref()
         .cloned()
         .ok_or_else(|| "Sherpa ONNX engine not initialized".to_string())
+}
+
+fn normalize_execution_provider(provider: &str) -> Result<String, String> {
+    let normalized = provider.to_lowercase();
+    if matches!(normalized.as_str(), "cpu" | "cuda") {
+        Ok(normalized)
+    } else {
+        Err(format!(
+            "Unsupported Sherpa execution provider '{}'. Use 'cpu' or 'cuda'.",
+            provider
+        ))
+    }
+}
+
+fn load_saved_execution_provider<R: Runtime>(app: &AppHandle<R>) -> String {
+    let store = match app.store(SHERPA_SETTINGS_STORE) {
+        Ok(store) => store,
+        Err(e) => {
+            log::warn!("Failed to access Sherpa settings store: {}, using CPU", e);
+            return "cpu".to_string();
+        }
+    };
+
+    store
+        .get(EXECUTION_PROVIDER_KEY)
+        .and_then(|value| value.as_str().map(ToString::to_string))
+        .and_then(|provider| match normalize_execution_provider(&provider) {
+            Ok(provider) => Some(provider),
+            Err(e) => {
+                log::warn!("Invalid saved Sherpa execution provider: {}, using CPU", e);
+                None
+            }
+        })
+        .unwrap_or_else(|| "cpu".to_string())
+}
+
+fn save_execution_provider<R: Runtime>(app: &AppHandle<R>, provider: &str) -> Result<(), String> {
+    let store = app
+        .store(SHERPA_SETTINGS_STORE)
+        .map_err(|e| format!("Failed to access Sherpa settings store: {}", e))?;
+    store.set(EXECUTION_PROVIDER_KEY, serde_json::json!(provider));
+    store
+        .save()
+        .map_err(|e| format!("Failed to save Sherpa settings: {}", e))
+}
+
+pub async fn apply_saved_execution_provider<R: Runtime>(
+    app: &AppHandle<R>,
+) -> Result<String, String> {
+    let provider = load_saved_execution_provider(app);
+    let engine = get_engine()?;
+    if engine.get_execution_provider().await != provider {
+        engine
+            .set_execution_provider(provider.clone())
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(provider)
 }
