@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -127,9 +127,9 @@ pub async fn get_device_and_config(
                 for device in host.input_devices()? {
                     if let Ok(name) = device.name() {
                         if name == audio_device.name {
-                            let default_config = device
-                                .default_input_config()
-                                .map_err(|e| anyhow!("Failed to get default input config: {}", e))?;
+                            let default_config = device.default_input_config().map_err(|e| {
+                                anyhow!("Failed to get default input config: {}", e)
+                            })?;
                             return Ok((device, default_config));
                         }
                     }
@@ -159,9 +159,10 @@ pub async fn get_device_and_config(
                         for device in pulse_host.input_devices()? {
                             if let Ok(name) = device.name() {
                                 if name == audio_device.name {
-                                    let default_config = device
-                                        .default_input_config()
-                                        .map_err(|e| anyhow!("Failed to get default input config: {}", e))?;
+                                    let default_config =
+                                        device.default_input_config().map_err(|e| {
+                                            anyhow!("Failed to get default input config: {}", e)
+                                        })?;
                                     return Ok((device, default_config));
                                 }
                             }

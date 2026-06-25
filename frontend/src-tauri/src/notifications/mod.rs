@@ -7,7 +7,7 @@ pub mod types;
 
 // Re-export main types for easy access
 pub use manager::NotificationManager;
-pub use settings::{get_default_settings, ConsentManager, NotificationSettings};
+pub use settings::{ConsentManager, NotificationSettings, get_default_settings};
 pub use system::SystemNotificationHandler;
 pub use types::{Notification, NotificationPriority, NotificationTimeout, NotificationType};
 

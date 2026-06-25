@@ -111,6 +111,35 @@ pub fn valid_or_default_model_id(model_id: Option<&str>) -> &'static str {
         .unwrap_or(DEFAULT_EMBEDDING_MODEL_ID)
 }
 
+pub fn available_embedding_model_id<R: Runtime>(
+    app: &AppHandle<R>,
+    preferred_model_id: Option<&str>,
+) -> Option<&'static str> {
+    select_available_model_id(preferred_model_id, |model| {
+        is_embedding_model_present_for_id(app, model.id)
+    })
+}
+
+fn select_available_model_id<F>(
+    preferred_model_id: Option<&str>,
+    is_present: F,
+) -> Option<&'static str>
+where
+    F: Fn(&EmbeddingModelInfo) -> bool,
+{
+    let preferred_model_id = valid_or_default_model_id(preferred_model_id);
+
+    if let Some(model) = embedding_model_by_id(preferred_model_id).filter(|model| is_present(model))
+    {
+        return Some(model.id);
+    }
+
+    EMBEDDING_MODELS
+        .iter()
+        .find(|model| is_present(model))
+        .map(|model| model.id)
+}
+
 pub fn session_config_for_model_id(model_id: &str) -> DiarizationSessionConfig {
     let model = embedding_model_by_id(model_id)
         .or_else(|| embedding_model_by_id(DEFAULT_EMBEDDING_MODEL_ID))
@@ -269,4 +298,34 @@ pub async fn download_embedding_model_for_id<R: Runtime>(
         downloaded
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn available_model_prefers_selected_when_present() {
+        let selected = select_available_model_id(Some(LEGACY_EMBEDDING_MODEL_ID), |model| {
+            model.id == LEGACY_EMBEDDING_MODEL_ID || model.id == DEFAULT_EMBEDDING_MODEL_ID
+        });
+
+        assert_eq!(selected, Some(LEGACY_EMBEDDING_MODEL_ID));
+    }
+
+    #[test]
+    fn available_model_falls_back_to_downloaded_model() {
+        let selected = select_available_model_id(Some(DEFAULT_EMBEDDING_MODEL_ID), |model| {
+            model.id == LEGACY_EMBEDDING_MODEL_ID
+        });
+
+        assert_eq!(selected, Some(LEGACY_EMBEDDING_MODEL_ID));
+    }
+
+    #[test]
+    fn available_model_returns_none_when_no_models_are_present() {
+        let selected = select_available_model_id(Some(DEFAULT_EMBEDDING_MODEL_ID), |_| false);
+
+        assert_eq!(selected, None);
+    }
 }

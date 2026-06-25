@@ -1,4 +1,4 @@
-use sqlx::{migrate::MigrateDatabase, Result, Sqlite, SqlitePool, Transaction};
+use sqlx::{Result, Sqlite, SqlitePool, Transaction, migrate::MigrateDatabase};
 use std::fs;
 use std::path::Path;
 use tauri::Manager;
@@ -79,7 +79,9 @@ impl DatabaseManager {
                 // Check if error is due to corrupted WAL file
                 let error_msg = e.to_string();
                 if error_msg.contains("malformed") || error_msg.contains("corrupt") {
-                    log::warn!("Database appears corrupted, likely due to orphaned WAL file. Attempting recovery...");
+                    log::warn!(
+                        "Database appears corrupted, likely due to orphaned WAL file. Attempting recovery..."
+                    );
                     log::warn!("Error details: {}", error_msg);
 
                     // Delete potentially corrupted WAL/SHM files
@@ -104,7 +106,10 @@ impl DatabaseManager {
                             Ok(db_manager)
                         }
                         Err(retry_err) => {
-                            log::error!("Database connection failed even after WAL cleanup: {}", retry_err);
+                            log::error!(
+                                "Database connection failed even after WAL cleanup: {}",
+                                retry_err
+                            );
                             Err(retry_err)
                         }
                     }

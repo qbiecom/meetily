@@ -50,7 +50,9 @@ pub fn trigger_audio_permission() -> Result<bool> {
     let device = match host.default_input_device() {
         Some(d) => d,
         None => {
-            info!("[trigger_audio_permission] No default input device found - permission likely denied");
+            info!(
+                "[trigger_audio_permission] No default input device found - permission likely denied"
+            );
             return Ok(false);
         }
     };
@@ -58,7 +60,10 @@ pub fn trigger_audio_permission() -> Result<bool> {
     let config = match device.default_input_config() {
         Ok(c) => c,
         Err(e) => {
-            info!("[trigger_audio_permission] Failed to get input config: {} - permission likely denied", e);
+            info!(
+                "[trigger_audio_permission] Failed to get input config: {} - permission likely denied",
+                e
+            );
             return Ok(false);
         }
     };
@@ -74,14 +79,20 @@ pub fn trigger_audio_permission() -> Result<bool> {
     ) {
         Ok(s) => s,
         Err(e) => {
-            info!("[trigger_audio_permission] Failed to build input stream: {} - permission likely denied", e);
+            info!(
+                "[trigger_audio_permission] Failed to build input stream: {} - permission likely denied",
+                e
+            );
             return Ok(false);
         }
     };
 
     // Start the stream to actually trigger the permission dialog
     if let Err(e) = stream.play() {
-        info!("[trigger_audio_permission] Failed to play stream: {} - permission likely denied", e);
+        info!(
+            "[trigger_audio_permission] Failed to play stream: {} - permission likely denied",
+            e
+        );
         return Ok(false);
     }
 

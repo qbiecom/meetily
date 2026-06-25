@@ -133,9 +133,14 @@ pub async fn load_recording_preferences<R: Runtime>(
         RecordingPreferences::default()
     };
 
-    info!("Loaded recording preferences: save_folder={:?}, auto_save={}, format={}, mic={:?}, system={:?}",
-          prefs.save_folder, prefs.auto_save, prefs.file_format,
-          prefs.preferred_mic_device, prefs.preferred_system_device);
+    info!(
+        "Loaded recording preferences: save_folder={:?}, auto_save={}, format={}, mic={:?}, system={:?}",
+        prefs.save_folder,
+        prefs.auto_save,
+        prefs.file_format,
+        prefs.preferred_mic_device,
+        prefs.preferred_system_device
+    );
     Ok(prefs)
 }
 
@@ -144,9 +149,14 @@ pub async fn save_recording_preferences<R: Runtime>(
     app: &AppHandle<R>,
     preferences: &RecordingPreferences,
 ) -> Result<()> {
-    info!("Saving recording preferences: save_folder={:?}, auto_save={}, format={}, mic={:?}, system={:?}",
-          preferences.save_folder, preferences.auto_save, preferences.file_format,
-          preferences.preferred_mic_device, preferences.preferred_system_device);
+    info!(
+        "Saving recording preferences: save_folder={:?}, auto_save={}, format={}, mic={:?}, system={:?}",
+        preferences.save_folder,
+        preferences.auto_save,
+        preferences.file_format,
+        preferences.preferred_mic_device,
+        preferences.preferred_system_device
+    );
 
     // Get or create store
     let store = app
@@ -389,4 +399,3 @@ pub async fn get_audio_backend_info() -> Result<Vec<BackendInfo>, String> {
         }])
     }
 }
-

@@ -589,7 +589,9 @@ pub async fn api_get_model_config<R: Runtime>(
             }
         }
         Ok(None) => {
-            log_warn!("⚠️ No model config found in database - database may be empty or settings table not initialized");
+            log_warn!(
+                "⚠️ No model config found in database - database may be empty or settings table not initialized"
+            );
             Ok(None)
         }
         Err(e) => {
@@ -1054,11 +1056,13 @@ pub async fn api_save_transcript<R: Runtime>(
 
     // Log parsed segments count and first segment details
     if let Some(first_seg) = transcripts_to_save.first() {
-        log_debug!("First parsed segment: text='{}', audio_start_time={:?}, audio_end_time={:?}, duration={:?}",
-                   first_seg.text.chars().take(50).collect::<String>(),
-                   first_seg.audio_start_time,
-                   first_seg.audio_end_time,
-                   first_seg.duration);
+        log_debug!(
+            "First parsed segment: text='{}', audio_start_time={:?}, audio_end_time={:?}, duration={:?}",
+            first_seg.text.chars().take(50).collect::<String>(),
+            first_seg.audio_start_time,
+            first_seg.audio_end_time,
+            first_seg.duration
+        );
     }
 
     let pool = state.db_manager.pool();
@@ -1440,7 +1444,9 @@ pub async fn api_test_custom_openai_connection<R: Runtime>(
                                             .is_some();
 
                                         if has_message_structure {
-                                            log_info!("✅ Custom OpenAI connection test successful - response validated");
+                                            log_info!(
+                                                "✅ Custom OpenAI connection test successful - response validated"
+                                            );
                                             return Ok(serde_json::json!({
                                                 "status": "success",
                                                 "message": "Connection successful and response validated",

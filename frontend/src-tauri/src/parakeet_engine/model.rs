@@ -2,8 +2,8 @@ use ndarray16::{Array, Array1, Array2, Array3, ArrayD, ArrayViewD, IxDyn};
 use once_cell::sync::Lazy;
 use ort::execution_providers::CPUExecutionProvider;
 use ort::inputs;
-use ort::session::builder::GraphOptimizationLevel;
 use ort::session::Session;
+use ort::session::builder::GraphOptimizationLevel;
 use ort::value::TensorRef;
 use regex::Regex;
 
@@ -54,7 +54,10 @@ pub struct ParakeetModel {
 
 impl Drop for ParakeetModel {
     fn drop(&mut self) {
-        log::debug!("Dropping ParakeetModel with {} vocab tokens", self.vocab.len());
+        log::debug!(
+            "Dropping ParakeetModel with {} vocab tokens",
+            self.vocab.len()
+        );
     }
 }
 
@@ -96,7 +99,10 @@ impl ParakeetModel {
             let quantized_name = format!("{}.int8.onnx", model_name);
             let quantized_path = model_dir.as_ref().join(&quantized_name);
             if quantized_path.exists() {
-                log::info!("Loading quantized Parakeet model from {}...", quantized_name);
+                log::info!(
+                    "Loading quantized Parakeet model from {}...",
+                    quantized_name
+                );
                 quantized_name
             } else {
                 let regular_name = format!("{}.onnx", model_name);
@@ -447,11 +453,7 @@ impl ParakeetModel {
         let text = match &*DECODE_SPACE_RE {
             Ok(regex) => regex
                 .replace_all(&tokens.join(""), |caps: &regex::Captures| {
-                    if caps.get(1).is_some() {
-                        " "
-                    } else {
-                        ""
-                    }
+                    if caps.get(1).is_some() { " " } else { "" }
                 })
                 .to_string(),
             Err(_) => tokens.join(""), // Fallback if regex failed to compile

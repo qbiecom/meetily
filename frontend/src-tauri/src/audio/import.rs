@@ -852,12 +852,21 @@ async fn ready_import_diarization_model_id<R: Runtime>(app: &AppHandle<R>) -> Op
         ),
     };
 
-    if enabled
-        && crate::diarization::models::is_embedding_model_present_for_id(app, &selected_model_id)
-    {
-        Some(selected_model_id)
-    } else {
-        None
+    if !enabled {
+        return None;
+    }
+
+    match crate::diarization::models::available_embedding_model_id(app, Some(&selected_model_id)) {
+        Some(available_model_id) => {
+            if available_model_id != selected_model_id {
+                info!(
+                    "Selected diarization model '{}' is unavailable for import; using downloaded model '{}'",
+                    selected_model_id, available_model_id
+                );
+            }
+            Some(available_model_id.to_string())
+        }
+        None => None,
     }
 }
 
@@ -868,18 +877,11 @@ async fn init_import_diarization_session<R: Runtime>(
     app: &AppHandle<R>,
     expected_speakers: Option<u32>,
 ) -> Option<crate::diarization::DiarizationSession> {
-    if ready_import_diarization_model_id(app).await.is_none() {
+    let Some(selected_model_id) = ready_import_diarization_model_id(app).await else {
         warn!(
             "🎙️ Speaker identification unavailable for imported audio - imported labels disabled"
         );
         return None;
-    }
-
-    let selected_model_id = match app.try_state::<AppState>() {
-        Some(state) => {
-            crate::diarization::commands::selected_model_id(state.db_manager.pool()).await
-        }
-        None => crate::diarization::models::DEFAULT_EMBEDDING_MODEL_ID.to_string(),
     };
 
     let model_path =

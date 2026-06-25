@@ -68,8 +68,7 @@ impl SpeakerProfilesRepository {
     }
 
     fn rows_to_profiles(rows: Vec<SpeakerProfileRow>) -> Vec<SpeakerProfile> {
-        rows
-            .into_iter()
+        rows.into_iter()
             .map(|r| SpeakerProfile {
                 id: r.id,
                 name: r.name,

@@ -60,8 +60,8 @@ fn mel_filterbank() -> Vec<Vec<(usize, f32)>> {
 fn povey_window() -> Vec<f32> {
     (0..FRAME_LENGTH)
         .map(|n| {
-            let hann =
-                0.5 - 0.5 * (2.0 * std::f32::consts::PI * n as f32 / (FRAME_LENGTH - 1) as f32).cos();
+            let hann = 0.5
+                - 0.5 * (2.0 * std::f32::consts::PI * n as f32 / (FRAME_LENGTH - 1) as f32).cos();
             hann.powf(0.85)
         })
         .collect()

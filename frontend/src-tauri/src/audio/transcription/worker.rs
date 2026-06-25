@@ -85,10 +85,26 @@ async fn init_diarization_session<R: Runtime>(
         Some(state) => crate::diarization::commands::selected_model_id(state.db_manager.pool()).await,
         None => crate::diarization::models::DEFAULT_EMBEDDING_MODEL_ID.to_string(),
     };
-    if !crate::diarization::models::is_embedding_model_present_for_id(app, &selected_model_id) {
-        warn!("🎙️ Speaker identification enabled but embedding model '{}' not downloaded - labels disabled", selected_model_id);
-        return None;
-    }
+    let selected_model_id = match crate::diarization::models::available_embedding_model_id(
+        app,
+        Some(&selected_model_id),
+    ) {
+        Some(available_model_id) => {
+            if available_model_id != selected_model_id {
+                info!(
+                    "Selected diarization model '{}' is unavailable for recording; using downloaded model '{}'",
+                    selected_model_id, available_model_id
+                );
+            }
+            available_model_id.to_string()
+        }
+        None => {
+            warn!(
+                "🎙️ Speaker identification enabled but no embedding model is downloaded - labels disabled"
+            );
+            return None;
+        }
+    };
     let model_path = match crate::diarization::models::embedding_model_path_for_id(app, &selected_model_id) {
         Ok(path) => path,
         Err(e) => {

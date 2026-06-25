@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Runtime};
-use tokio::sync::mpsc;
 use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::mpsc;
 
 use super::audio_processing::create_meeting_folder;
 use super::incremental_saver::IncrementalAudioSaver;
@@ -448,7 +448,9 @@ impl RecordingSaver {
         let should_save_audio = self.incremental_saver.is_some();
 
         if !should_save_audio {
-            info!("⚠️  No audio saver initialized (auto-save was disabled) - skipping audio finalization");
+            info!(
+                "⚠️  No audio saver initialized (auto-save was disabled) - skipping audio finalization"
+            );
             info!("✅ Transcripts and metadata already saved incrementally");
             return Ok(None);
         }

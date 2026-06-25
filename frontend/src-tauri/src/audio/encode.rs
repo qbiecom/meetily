@@ -1,5 +1,5 @@
-use super::ffmpeg::find_ffmpeg_path; // Correct path to encode module
 use super::AudioDevice;
+use super::ffmpeg::find_ffmpeg_path; // Correct path to encode module
 use std::io::Write;
 use std::sync::Arc;
 use std::{
@@ -21,7 +21,10 @@ pub fn encode_single_audio(
     channels: u16,
     output_path: &PathBuf,
 ) -> anyhow::Result<()> {
-    debug!("Starting FFmpeg process for {} bytes of audio data", data.len());
+    debug!(
+        "Starting FFmpeg process for {} bytes of audio data",
+        data.len()
+    );
 
     if data.is_empty() {
         return Err(anyhow::anyhow!("No audio data provided for encoding"));

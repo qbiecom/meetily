@@ -7,8 +7,8 @@ use super::fbank::{FbankComputer, NUM_MEL_BINS};
 use ndarray16::Array3;
 use ort::execution_providers::CPUExecutionProvider;
 use ort::inputs;
-use ort::session::builder::GraphOptimizationLevel;
 use ort::session::Session;
+use ort::session::builder::GraphOptimizationLevel;
 use ort::value::TensorRef;
 use std::path::Path;
 

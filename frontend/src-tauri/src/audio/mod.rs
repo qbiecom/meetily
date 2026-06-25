@@ -52,20 +52,20 @@ pub mod retranscription;
 pub mod import;
 
 pub use devices::{
+    AudioDevice, AudioTranscriptionEngine, DeviceControl, DeviceType, LAST_AUDIO_CAPTURE,
     default_input_device, default_output_device, get_device_and_config, list_audio_devices,
-    parse_audio_device, trigger_audio_permission, AudioDevice, AudioTranscriptionEngine,
-    DeviceControl, DeviceType, LAST_AUDIO_CAPTURE,
+    parse_audio_device, trigger_audio_permission,
 };
 
 // Export system audio capture functionality
 pub use capture::{
-    check_system_audio_permissions, list_system_audio_devices, start_system_audio_capture,
-    SystemAudioCapture, SystemAudioStream,
+    SystemAudioCapture, SystemAudioStream, check_system_audio_permissions,
+    list_system_audio_devices, start_system_audio_capture,
 };
 
 // Export system audio detection functionality
 pub use system_detector::{
-    new_system_audio_callback, SystemAudioCallback, SystemAudioDetector, SystemAudioEvent,
+    SystemAudioCallback, SystemAudioDetector, SystemAudioEvent, new_system_audio_callback,
 };
 
 // Export system audio commands
@@ -78,17 +78,17 @@ pub use system_audio_commands::{
 // Export new simplified components
 pub use buffer_pool::{AudioBufferPool, PooledBuffer};
 pub use device_monitor::{AudioDeviceMonitor, DeviceEvent, DeviceMonitorType};
-pub use encode::{encode_single_audio, AudioInput};
+pub use encode::{AudioInput, encode_single_audio};
 pub use hardware_detector::{AdaptiveWhisperConfig, GpuType, HardwareProfile, PerformanceTier};
 pub use level_monitor::{AudioLevelData, AudioLevelMonitor, AudioLevelUpdate};
 pub use pipeline::AudioPipelineManager;
 pub use post_processor::{PostProcessRequest, PostProcessResponse, PostProcessor};
 pub use recording_commands::{
-    get_transcription_status, is_recording, start_recording, start_recording_with_devices,
-    stop_recording, RecordingArgs, TranscriptUpdate, TranscriptionStatus,
+    RecordingArgs, TranscriptUpdate, TranscriptionStatus, get_transcription_status, is_recording,
+    start_recording, start_recording_with_devices, stop_recording,
 };
 pub use recording_manager::RecordingManager;
-pub use recording_preferences::{get_default_recordings_folder, RecordingPreferences};
+pub use recording_preferences::{RecordingPreferences, get_default_recordings_folder};
 pub use recording_saver::RecordingSaver;
 pub use recording_state::{
     AudioChunk, AudioError, DeviceType as RecordingDeviceType, ProcessedAudioChunk, RecordingState,
@@ -96,7 +96,7 @@ pub use recording_state::{
 pub use stream::AudioStreamManager;
 
 // Export device detection and diagnostics
-pub use device_detection::{calculate_buffer_timeout, InputDeviceKind};
+pub use device_detection::{InputDeviceKind, calculate_buffer_timeout};
 pub use diagnostics::{
     log_buffer_health, log_detection_summary, log_device_capabilities, log_mixer_status,
     log_performance_summary,
@@ -108,7 +108,7 @@ pub use ffmpeg_mixer::{BufferStats, FFmpegAudioMixer, RNNOISE_APPLY_ENABLED};
 pub use vad::extract_speech_16k;
 
 // Export decoder for retranscription
-pub use decoder::{decode_audio_file, DecodedAudio};
+pub use decoder::{DecodedAudio, decode_audio_file};
 
 // Export audio constants
 pub use constants::AUDIO_EXTENSIONS;
