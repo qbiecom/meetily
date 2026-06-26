@@ -1,6 +1,7 @@
 use log::{debug as log_debug, error as log_error, info as log_info, warn as log_warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::Path;
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_store::StoreExt;
 
@@ -842,9 +843,36 @@ pub async fn api_delete_meeting<R: Runtime>(
     );
 
     let pool = state.db_manager.pool();
+    let folder_path = match MeetingsRepository::get_meeting_metadata(pool, &meeting_id).await {
+        Ok(Some(meeting)) => meeting.folder_path,
+        Ok(None) => None,
+        Err(e) => {
+            log_warn!(
+                "Could not read folder path before deleting meeting {}: {}",
+                meeting_id,
+                e
+            );
+            None
+        }
+    };
 
     match MeetingsRepository::delete_meeting(pool, &meeting_id).await {
         Ok(true) => {
+            if let Some(folder_path) = folder_path.filter(|p| !p.trim().is_empty()) {
+                let path = Path::new(&folder_path);
+                if path.is_dir() {
+                    if let Err(e) = std::fs::remove_dir_all(path) {
+                        log_warn!(
+                            "Deleted meeting {} but failed to remove folder {}: {}",
+                            meeting_id,
+                            folder_path,
+                            e
+                        );
+                    } else {
+                        log_info!("Removed meeting folder: {}", folder_path);
+                    }
+                }
+            }
             log_info!("Successfully deleted meeting {}", meeting_id);
             Ok(serde_json::json!({
                 "status": "success",

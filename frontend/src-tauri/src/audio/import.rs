@@ -18,6 +18,7 @@ use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
@@ -27,6 +28,7 @@ use uuid::Uuid;
 use super::audio_processing::create_meeting_folder;
 use super::common::{split_segment_at_silence, write_transcripts_json};
 use super::constants::AUDIO_EXTENSIONS;
+use super::ffmpeg::find_ffmpeg_path;
 use super::recording_preferences::get_default_recordings_folder;
 
 /// Global flag to track if import is in progress
@@ -70,6 +72,65 @@ const IMPORT_VAD_DEFAULT_REDEMPTION_TIME_MS: u32 = 400;
 const IMPORT_VAD_BALANCED_REDEMPTION_TIME_MS: u32 = 800;
 const IMPORT_VAD_LOW_REDEMPTION_TIME_MS: u32 = 1500;
 const IMPORT_VAD_SMOOTH_REDEMPTION_TIME_MS: u32 = DEFAULT_IMPORT_VAD_REDEMPTION_TIME_MS;
+
+fn is_video_container(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|ext| matches!(ext.to_lowercase().as_str(), "mp4" | "mkv" | "webm"))
+        .unwrap_or(false)
+}
+
+fn extract_audio_track(input: &Path, output: &Path) -> Result<()> {
+    let ffmpeg_path = find_ffmpeg_path()
+        .ok_or_else(|| anyhow!("FFmpeg not found. FFmpeg is required to import video files."))?;
+    let input = input
+        .to_str()
+        .ok_or_else(|| anyhow!("Invalid input path (non-UTF8)"))?;
+    let output = output
+        .to_str()
+        .ok_or_else(|| anyhow!("Invalid output path (non-UTF8)"))?;
+
+    let mut command = Command::new(ffmpeg_path);
+    command
+        .args([
+            "-i",
+            input,
+            "-vn",
+            "-map",
+            "0:a:0",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "192k",
+            "-movflags",
+            "+faststart",
+            "-y",
+            output,
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let output = command
+        .output()
+        .map_err(|e| anyhow!("Failed to run FFmpeg: {}", e))?;
+
+    if !output.status.success() {
+        return Err(anyhow!(
+            "Failed to extract audio from video: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    Ok(())
+}
 
 fn import_vad_redemption_time_ms(
     diarization_model_id: Option<&str>,
@@ -392,21 +453,41 @@ async fn run_import<R: Runtime>(
     let base_folder = get_default_recordings_folder();
     let meeting_folder = create_meeting_folder(&base_folder, &title, false)?;
 
-    // Copy audio file to meeting folder
-    emit_progress(&app, "copying", 10, "Copying audio file...");
-
-    let dest_filename = format!(
-        "audio.{}",
-        source.extension().and_then(|e| e.to_str()).unwrap_or("mp4")
+    // Store only playable audio in the meeting folder.
+    let source_is_video = is_video_container(&source);
+    emit_progress(
+        &app,
+        "copying",
+        10,
+        if source_is_video {
+            "Extracting audio track..."
+        } else {
+            "Copying audio file..."
+        },
     );
+
+    let dest_filename = if source_is_video {
+        "audio.m4a".to_string()
+    } else {
+        format!(
+            "audio.{}",
+            source.extension().and_then(|e| e.to_str()).unwrap_or("mp4")
+        )
+    };
     let dest_path = meeting_folder.join(&dest_filename);
 
     let src = source.clone();
     let dst = dest_path.clone();
-    tokio::task::spawn_blocking(move || std::fs::copy(&src, &dst))
-        .await
-        .map_err(|e| anyhow!("Copy task join error: {}", e))?
-        .map_err(|e| anyhow!("Failed to copy audio file: {}", e))?;
+    tokio::task::spawn_blocking(move || {
+        if source_is_video {
+            extract_audio_track(&src, &dst).map(|_| 0_u64)
+        } else {
+            std::fs::copy(&src, &dst).map_err(Into::into)
+        }
+    })
+    .await
+    .map_err(|e| anyhow!("Copy task join error: {}", e))?
+    .map_err(|e| anyhow!("Failed to import audio file: {}", e))?;
 
     info!("Copied audio to: {}", dest_path.display());
 
@@ -1521,6 +1602,15 @@ mod tests {
         assert!(AUDIO_EXTENSIONS.contains(&"wav"));
         assert!(AUDIO_EXTENSIONS.contains(&"mp3"));
         assert!(!AUDIO_EXTENSIONS.contains(&"txt"));
+    }
+
+    #[test]
+    fn test_video_containers_extract_audio_only() {
+        assert!(is_video_container(Path::new("meeting.mp4")));
+        assert!(is_video_container(Path::new("meeting.MKV")));
+        assert!(is_video_container(Path::new("meeting.webm")));
+        assert!(!is_video_container(Path::new("meeting.m4a")));
+        assert!(!is_video_container(Path::new("meeting.wav")));
     }
 
     #[test]
