@@ -63,6 +63,10 @@ impl Drop for ImportGuard {
 const DEFAULT_IMPORT_VAD_REDEMPTION_TIME_MS: u32 = 2000;
 
 const IMPORT_VAD_HIGH_REDEMPTION_TIME_MS: u32 = 250;
+// audio::vad currently applies a fixed 400ms post-speech pad. silero_rs slices
+// through that padded end when a speech segment closes, so import redemption
+// must not be shorter than the post-speech pad or high-precision VAD can panic.
+const IMPORT_VAD_MIN_SAFE_REDEMPTION_TIME_MS: u32 = 400;
 const IMPORT_VAD_DEFAULT_REDEMPTION_TIME_MS: u32 = 400;
 const IMPORT_VAD_BALANCED_REDEMPTION_TIME_MS: u32 = 800;
 const IMPORT_VAD_LOW_REDEMPTION_TIME_MS: u32 = 1500;
@@ -76,7 +80,7 @@ fn import_vad_redemption_time_ms(
         return DEFAULT_IMPORT_VAD_REDEMPTION_TIME_MS;
     };
 
-    match speaker_turn_sensitivity.unwrap_or("high") {
+    let redemption_time_ms = match speaker_turn_sensitivity.unwrap_or("high") {
         "high" => IMPORT_VAD_HIGH_REDEMPTION_TIME_MS,
         "default" => {
             crate::diarization::models::default_import_vad_redemption_ms_for_model_id(model_id)
@@ -86,7 +90,9 @@ fn import_vad_redemption_time_ms(
         "low" => IMPORT_VAD_LOW_REDEMPTION_TIME_MS,
         "smooth" => IMPORT_VAD_SMOOTH_REDEMPTION_TIME_MS,
         _ => crate::diarization::models::default_import_vad_redemption_ms_for_model_id(model_id),
-    }
+    };
+
+    redemption_time_ms.max(IMPORT_VAD_MIN_SAFE_REDEMPTION_TIME_MS)
 }
 
 /// Maximum file size: 20GB (prevents OOM and excessive processing time)
@@ -1548,6 +1554,25 @@ mod tests {
 
         // Reset
         IMPORT_CANCELLED.store(false, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn test_import_vad_redemption_time_never_below_safe_minimum() {
+        let model_id = Some(crate::diarization::models::DEFAULT_EMBEDDING_MODEL_ID);
+
+        for sensitivity in [Some("high"), Some("default"), None] {
+            assert!(
+                import_vad_redemption_time_ms(model_id, sensitivity)
+                    >= IMPORT_VAD_MIN_SAFE_REDEMPTION_TIME_MS,
+                "sensitivity {:?} returned a VAD redemption time below the post-speech pad",
+                sensitivity
+            );
+        }
+
+        assert_eq!(
+            import_vad_redemption_time_ms(model_id, Some("high")),
+            IMPORT_VAD_MIN_SAFE_REDEMPTION_TIME_MS
+        );
     }
 
     #[test]
