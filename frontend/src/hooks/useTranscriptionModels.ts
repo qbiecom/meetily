@@ -101,7 +101,7 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
         .map((m) => ({
           provider: 'sherpaOnnx' as const,
           name: m.name,
-          displayName: `Sherpa ONNX: ${m.name}`,
+          displayName: `🧗 Sherpa ONNX: ${m.name}`,
           size_mb: m.size_mb,
         }));
       allModels.push(...availableSherpa);
