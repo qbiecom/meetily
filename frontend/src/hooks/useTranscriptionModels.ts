@@ -18,6 +18,10 @@ function isAvailableStatus(status: RawModelInfo['status']): boolean {
   return status === 'Available' || (typeof status === 'object' && status !== null && 'Available' in status);
 }
 
+function isLocallyPresentStatus(status: RawModelInfo['status']): boolean {
+  return isAvailableStatus(status) || (typeof status === 'object' && status !== null && 'Corrupted' in status);
+}
+
 export interface ModelOption {
   provider: 'whisper' | 'parakeet' | 'sherpaOnnx';
   name: string;
@@ -93,7 +97,7 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
       await invoke('sherpa_init');
       const sherpaModels = await invoke<RawModelInfo[]>('sherpa_get_available_models');
       const availableSherpa = sherpaModels
-        .filter((m) => isAvailableStatus(m.status))
+        .filter((m) => isLocallyPresentStatus(m.status))
         .map((m) => ({
           provider: 'sherpaOnnx' as const,
           name: m.name,

@@ -793,12 +793,13 @@ fn validate_spec_files(
     let mut expected_min_size = 0u64;
 
     for file in &spec.files {
-        expected_min_size += file.min_bytes;
+        let min_valid_size = validation_min_bytes(file.min_bytes);
+        expected_min_size += min_valid_size;
         let path = model_dir.join(file.local_name);
         match std::fs::metadata(path) {
             Ok(metadata) => {
                 file_size += metadata.len();
-                if metadata.len() < file.min_bytes {
+                if metadata.len() < min_valid_size {
                     return Err((file_size, expected_min_size));
                 }
             }
@@ -807,4 +808,8 @@ fn validate_spec_files(
     }
 
     Ok(())
+}
+
+fn validation_min_bytes(spec_min_bytes: u64) -> u64 {
+    spec_min_bytes.min((spec_min_bytes / 100).max(1_024))
 }

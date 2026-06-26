@@ -12,6 +12,10 @@ function isStatusMissing(status: ModelStatus): boolean {
   return status === 'Missing' || (typeof status === 'object' && status !== null && 'Missing' in status);
 }
 
+function isStatusCorrupted(status: ModelStatus): boolean {
+  return typeof status === 'object' && status !== null && 'Corrupted' in status;
+}
+
 interface SherpaOnnxModelManagerProps {
   selectedModel?: string;
   onModelSelect?: (modelName: string) => void;
@@ -157,19 +161,20 @@ export function SherpaOnnxModelManager({ selectedModel, onModelSelect, autoSave 
           ? model.status.Downloading.progress
           : null;
         const isError = typeof model.status === 'object' && 'Error' in model.status;
-        const isCorrupted = typeof model.status === 'object' && 'Corrupted' in model.status;
+        const isCorrupted = isStatusCorrupted(model.status);
+        const isSelectable = isAvailable || isCorrupted;
 
         return (
           <div
             key={model.name}
-            onClick={() => isAvailable && selectModel(model.name)}
-            className={`rounded-lg border-2 p-4 ${isSelected && isAvailable ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'} ${isAvailable ? 'cursor-pointer hover:border-gray-300' : ''}`}
+            onClick={() => isSelectable && selectModel(model.name)}
+            className={`rounded-lg border-2 p-4 ${isSelected && isSelectable ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'} ${isSelectable ? 'cursor-pointer hover:border-gray-300' : ''}`}
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-mono text-sm font-semibold text-gray-900 sm:text-base">{model.name}</h3>
-                  {isSelected && isAvailable && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-medium text-white">Selected</span>}
+                  {isSelected && isSelectable && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-medium text-white">Selected</span>}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Sherpa ONNX</span>
@@ -182,7 +187,8 @@ export function SherpaOnnxModelManager({ selectedModel, onModelSelect, autoSave 
 
               <div className="flex shrink-0 items-center gap-2">
                 {isAvailable && <span className="text-xs font-medium text-green-600">Ready</span>}
-                {isAvailable && (
+                {isCorrupted && <span className="text-xs font-medium text-amber-600">Downloaded</span>}
+                {isSelectable && (
                   <button
                     onClick={(event) => { event.stopPropagation(); selectModel(model.name); }}
                     className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-default disabled:bg-blue-300"
