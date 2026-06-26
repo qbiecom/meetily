@@ -43,12 +43,12 @@ impl ContinuousVadProcessor {
         config.positive_speech_threshold = 0.50; // Silero default - good for continuous speech
         config.negative_speech_threshold = 0.35; // Silero default - allows natural pauses
 
-        // CRITICAL FIX: Removed redemption_time capping to support long continuous speech
-        // Previous: capped at 400ms, causing VAD to fragment 5-second speech into 40ms segments
-        // New: Use full redemption_time from pipeline (2000ms) to bridge natural pauses
+        // Keep redemption configurable: long values smooth dictation/imports;
+        // short values improve speaker-turn splitting for diarization.
         config.redemption_time = Duration::from_millis(redemption_time_ms as u64);
-        config.pre_speech_pad = Duration::from_millis(300); // Pre-speech padding for context
-        config.post_speech_pad = Duration::from_millis(400); // Increased: more context at end
+        config.pre_speech_pad = Duration::from_millis(250); // Pre-speech padding for context
+        let post_speech_pad_ms = redemption_time_ms.clamp(150, 400);
+        config.post_speech_pad = Duration::from_millis(post_speech_pad_ms as u64);
 
         // CRITICAL FIX: Increased min_speech_time to prevent tiny 40ms fragments
         // Previous: 100ms allowed too-short segments that Whisper rejects
@@ -56,8 +56,8 @@ impl ContinuousVadProcessor {
         config.min_speech_time = Duration::from_millis(250); // Prevent tiny fragments
 
         debug!(
-            "Creating VAD session with: sample_rate={}Hz, redemption={}ms, min_speech={}ms, input_rate={}Hz",
-            VAD_SAMPLE_RATE, redemption_time_ms, 250, input_sample_rate
+            "Creating VAD session with: sample_rate={}Hz, redemption={}ms, post_pad={}ms, min_speech={}ms, input_rate={}Hz",
+            VAD_SAMPLE_RATE, redemption_time_ms, post_speech_pad_ms, 250, input_sample_rate
         );
 
         let session = VadSession::new(config)

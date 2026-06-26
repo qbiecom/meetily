@@ -63,10 +63,9 @@ impl Drop for ImportGuard {
 const DEFAULT_IMPORT_VAD_REDEMPTION_TIME_MS: u32 = 2000;
 
 const IMPORT_VAD_HIGH_REDEMPTION_TIME_MS: u32 = 250;
-// audio::vad currently applies a fixed 400ms post-speech pad. silero_rs slices
-// through that padded end when a speech segment closes, so import redemption
-// must not be shorter than the post-speech pad or high-precision VAD can panic.
-const IMPORT_VAD_MIN_SAFE_REDEMPTION_TIME_MS: u32 = 400;
+// Keep this above audio::vad's minimum dynamic post-speech pad. Shorter values
+// improve speaker-turn splitting when diarization is enabled.
+const IMPORT_VAD_MIN_SAFE_REDEMPTION_TIME_MS: u32 = 150;
 const IMPORT_VAD_DEFAULT_REDEMPTION_TIME_MS: u32 = 400;
 const IMPORT_VAD_BALANCED_REDEMPTION_TIME_MS: u32 = 800;
 const IMPORT_VAD_LOW_REDEMPTION_TIME_MS: u32 = 1500;
@@ -1571,7 +1570,7 @@ mod tests {
 
         assert_eq!(
             import_vad_redemption_time_ms(model_id, Some("high")),
-            IMPORT_VAD_MIN_SAFE_REDEMPTION_TIME_MS
+            IMPORT_VAD_HIGH_REDEMPTION_TIME_MS
         );
     }
 
