@@ -386,7 +386,8 @@ impl DiarizationSession {
         for cluster in clusters {
             // ponytail: boundary blips under 1s are noise; keep them on the nearest stable speaker.
             if cluster_count > 1
-                && offline_cluster_duration(&cluster, &records) < MAX_IMPORT_SINGLETON_SPEAKER_SECONDS
+                && offline_cluster_duration(&cluster, &records)
+                    < MAX_IMPORT_SINGLETON_SPEAKER_SECONDS
             {
                 continue;
             }
