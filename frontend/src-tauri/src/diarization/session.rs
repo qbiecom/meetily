@@ -4,7 +4,7 @@
 // Created when a recording starts (if the feature is enabled and the model
 // is present) and dropped when it ends.
 
-use super::clustering::{SpeakerClusterer, SpeakerClusteringConfig};
+use super::clustering::{SpeakerClusterer, SpeakerClusteringConfig, cosine_similarity};
 use super::embedding::{EmbeddingError, EmbeddingExtractor};
 use super::timeline::{RollingDiarizationBuffer, SpeakerTimeline, SpeakerTimelineSegment};
 use std::path::Path;
@@ -58,6 +58,88 @@ fn has_enough_samples_for_reliable_segment(samples_len: usize, min_segment_ms: u
     let min_samples = ((min_segment_ms as usize) * DIARIZATION_SAMPLE_RATE as usize / 1000)
         .max(MIN_SAMPLES_FOR_EMBEDDING);
     samples_len >= min_samples
+}
+
+#[derive(Clone)]
+struct OfflineEmbedding {
+    segment_index: usize,
+    start_time: f64,
+    end_time: f64,
+    embedding: Vec<f32>,
+}
+
+#[derive(Clone)]
+struct OfflineCluster {
+    members: Vec<usize>,
+    centroid: Vec<f32>,
+}
+
+fn normalized_weighted_centroid(
+    a: &[f32],
+    a_weight: usize,
+    b: &[f32],
+    b_weight: usize,
+) -> Vec<f32> {
+    let total = (a_weight + b_weight) as f32;
+    let mut centroid = a
+        .iter()
+        .zip(b.iter())
+        .map(|(a, b)| ((*a * a_weight as f32) + (*b * b_weight as f32)) / total)
+        .collect::<Vec<_>>();
+    let norm = centroid.iter().map(|v| v * v).sum::<f32>().sqrt();
+    if norm > 0.0 {
+        for value in &mut centroid {
+            *value /= norm;
+        }
+    }
+    centroid
+}
+
+fn offline_clusters(
+    records: &[OfflineEmbedding],
+    config: SpeakerClusteringConfig,
+) -> Vec<OfflineCluster> {
+    let mut clusters = records
+        .iter()
+        .enumerate()
+        .map(|(record_index, record)| OfflineCluster {
+            members: vec![record_index],
+            centroid: record.embedding.clone(),
+        })
+        .collect::<Vec<_>>();
+
+    // ponytail: O(n^3) is fine for import chunks; use a priority queue if huge imports get slow.
+    loop {
+        let mut best: Option<(usize, usize, f32)> = None;
+        for i in 0..clusters.len() {
+            for j in (i + 1)..clusters.len() {
+                let similarity = cosine_similarity(&clusters[i].centroid, &clusters[j].centroid);
+                if best.map_or(true, |(_, _, best_similarity)| similarity > best_similarity) {
+                    best = Some((i, j, similarity));
+                }
+            }
+        }
+
+        let Some((i, j, similarity)) = best else {
+            break;
+        };
+
+        if similarity < config.cluster_similarity_threshold
+            && clusters.len() <= config.max_anonymous_speakers
+        {
+            break;
+        }
+
+        let right = clusters.remove(j);
+        let left = &mut clusters[i];
+        let left_len = left.members.len();
+        let right_len = right.members.len();
+        left.centroid =
+            normalized_weighted_centroid(&left.centroid, left_len, &right.centroid, right_len);
+        left.members.extend(right.members);
+    }
+
+    clusters
 }
 
 pub struct DiarizationSession {
@@ -238,6 +320,85 @@ impl DiarizationSession {
         }
     }
 
+    /// Label already-segmented import audio with an offline global clustering
+    /// pass. Live recording still uses the online path above.
+    pub fn label_discrete_segments_offline(
+        &mut self,
+        segments: &[(f64, &[f32])],
+    ) -> Vec<Option<String>> {
+        self.speaker_timeline = SpeakerTimeline::new();
+
+        let mut records = Vec::new();
+        for (segment_index, (start_time, samples_16k)) in segments.iter().enumerate() {
+            if !has_enough_samples_for_reliable_segment(
+                samples_16k.len(),
+                self.config.min_reliable_segment_ms,
+            ) {
+                continue;
+            }
+
+            match self.extractor.compute(samples_16k) {
+                Ok(embedding) => {
+                    let duration = samples_16k.len() as f64 / DIARIZATION_SAMPLE_RATE as f64;
+                    records.push(OfflineEmbedding {
+                        segment_index,
+                        start_time: *start_time,
+                        end_time: *start_time + duration,
+                        embedding,
+                    });
+                }
+                Err(e) => {
+                    log::warn!("Diarization import embedding failed: {}", e);
+                }
+            }
+        }
+
+        let mut labels = vec![None; segments.len()];
+        let mut clusters = offline_clusters(&records, self.config.clustering);
+        clusters.sort_by(|a, b| {
+            let a_start = a
+                .members
+                .iter()
+                .map(|index| records[*index].start_time)
+                .fold(f64::INFINITY, f64::min);
+            let b_start = b
+                .members
+                .iter()
+                .map(|index| records[*index].start_time)
+                .fold(f64::INFINITY, f64::min);
+            a_start
+                .partial_cmp(&b_start)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        for cluster in clusters {
+            let label = self.clusterer.assign(&cluster.centroid);
+            for record_index in cluster.members {
+                let record = &records[record_index];
+                labels[record.segment_index] = Some(label.clone());
+                self.speaker_timeline
+                    .push_window_segment(SpeakerTimelineSegment {
+                        start_time: record.start_time,
+                        end_time: record.end_time,
+                        speaker_ids: vec![label.clone()],
+                        confidence: 0.8,
+                        overlap: false,
+                    });
+            }
+        }
+
+        let mut last_label = None;
+        for label in &mut labels {
+            if label.is_some() {
+                last_label = label.clone();
+            } else {
+                *label = last_label.clone();
+            }
+        }
+
+        labels
+    }
+
     pub fn timeline_snapshot(&self) -> Vec<SpeakerTimelineSegment> {
         self.speaker_timeline.segments().to_vec()
     }
@@ -254,6 +415,20 @@ impl DiarizationSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn unit(v: Vec<f32>) -> Vec<f32> {
+        let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        v.into_iter().map(|x| x / n).collect()
+    }
+
+    fn offline_record(segment_index: usize, embedding: Vec<f32>) -> OfflineEmbedding {
+        OfflineEmbedding {
+            segment_index,
+            start_time: segment_index as f64,
+            end_time: segment_index as f64 + 1.0,
+            embedding,
+        }
+    }
 
     #[test]
     fn embedding_gate_matches_minimum_fbank_frames() {
@@ -302,5 +477,44 @@ mod tests {
         assert!(should_compute_direct_segment_label(
             MIN_SAMPLES_FOR_EMBEDDING
         ));
+    }
+
+    #[test]
+    fn offline_clustering_uses_global_similarity() {
+        let records = vec![
+            offline_record(0, unit(vec![1.0, 0.0, 0.0])),
+            offline_record(1, unit(vec![0.0, 1.0, 0.0])),
+            offline_record(2, unit(vec![0.95, 0.05, 0.0])),
+        ];
+        let clusters = offline_clusters(
+            &records,
+            SpeakerClusteringConfig {
+                cluster_similarity_threshold: 0.9,
+                profile_match_threshold: 0.9,
+                max_anonymous_speakers: 8,
+            },
+        );
+
+        assert_eq!(clusters.len(), 2);
+        assert!(clusters.iter().any(|cluster| cluster.members.len() == 2));
+    }
+
+    #[test]
+    fn offline_clustering_respects_max_speakers() {
+        let records = vec![
+            offline_record(0, unit(vec![1.0, 0.0, 0.0])),
+            offline_record(1, unit(vec![0.0, 1.0, 0.0])),
+            offline_record(2, unit(vec![0.0, 0.0, 1.0])),
+        ];
+        let clusters = offline_clusters(
+            &records,
+            SpeakerClusteringConfig {
+                cluster_similarity_threshold: 0.99,
+                profile_match_threshold: 0.99,
+                max_anonymous_speakers: 2,
+            },
+        );
+
+        assert_eq!(clusters.len(), 2);
     }
 }

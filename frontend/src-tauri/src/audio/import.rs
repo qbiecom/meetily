@@ -750,6 +750,28 @@ async fn run_import<R: Runtime>(
         processable_count
     );
 
+    let (diarization_labels, overlap_regions) = if let Some(session) = diarization_session.as_mut()
+    {
+        emit_progress(&app, "diarizing", 30, "Identifying speakers...");
+        let diarization_inputs = processable_segments
+            .iter()
+            .map(|segment| {
+                (
+                    segment.start_timestamp_ms / 1000.0,
+                    segment.samples.as_slice(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let labels = session.label_discrete_segments_offline(&diarization_inputs);
+        let regions = detect_overlap_regions_from_timeline(
+            &session.timeline_snapshot(),
+            &OverlapDetector::default(),
+        );
+        (Some(labels), regions)
+    } else {
+        (None, Vec::new())
+    };
+
     // Process each speech segment
     let mut segments: Vec<TranscriptSegment> = Vec::new();
     let mut total_confidence = 0.0f32;
@@ -830,14 +852,10 @@ async fn run_import<R: Runtime>(
             let audio_end_time = segment.end_timestamp_ms / 1000.0;
             let duration = audio_end_time - audio_start_time;
 
-            let (speaker, overlap_region) = if let Some(session) = diarization_session.as_mut() {
-                let speaker = session.label_discrete_segment_at(audio_start_time, &segment.samples);
-                let regions = detect_overlap_regions_from_timeline(
-                    &session.timeline_snapshot(),
-                    &OverlapDetector::default(),
-                );
+            let (speaker, overlap_region) = if let Some(labels) = diarization_labels.as_ref() {
+                let speaker = labels.get(i).cloned().flatten();
                 let overlap_region = find_overlap_region_for_range(
-                    &regions,
+                    &overlap_regions,
                     seconds_to_ms(audio_start_time),
                     seconds_to_ms(audio_end_time),
                 )
