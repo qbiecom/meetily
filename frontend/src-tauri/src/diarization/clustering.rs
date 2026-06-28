@@ -164,6 +164,12 @@ impl SpeakerClusterer {
         label
     }
 
+    pub fn force_new_anonymous_cluster(&mut self, embedding: &[f32]) -> String {
+        let label = self.create_anonymous_cluster(embedding);
+        self.last_label = Some(label.clone());
+        label
+    }
+
     fn nearest_active_cluster_label(&self, embedding: &[f32]) -> Option<String> {
         self.clusters
             .iter()
@@ -238,5 +244,16 @@ mod tests {
         assert!(matches!(assigned.as_str(), "Speaker 1" | "Speaker 2"));
         assert_eq!(c.centroids().count(), 2);
         assert_eq!(c.anon_speaker_count(), 2);
+    }
+
+    #[test]
+    fn can_force_distinct_offline_clusters() {
+        let mut c = SpeakerClusterer::with_max_anonymous_speakers(2);
+        let a = unit(vec![1.0, 0.0, 0.0]);
+        let close = unit(vec![0.95, 0.05, 0.0]);
+
+        assert_eq!(c.assign(&a), "Speaker 1");
+        assert_eq!(c.assign(&close), "Speaker 1");
+        assert_eq!(c.force_new_anonymous_cluster(&close), "Speaker 2");
     }
 }

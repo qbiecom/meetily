@@ -490,6 +490,15 @@ fn model_specs() -> Vec<SherpaModelSpec> {
     ]
 }
 
+fn clean_sherpa_transcript_text(text: String) -> String {
+    let text = text.trim();
+    let text = text
+        .find("<asr_text>")
+        .map(|index| &text[index + "<asr_text>".len()..])
+        .unwrap_or(text);
+    text.replace("</asr_text>", "").trim().to_string()
+}
+
 pub struct SherpaEngine {
     models_dir: PathBuf,
     current_model: Arc<RwLock<Option<Arc<OfflineRecognizer>>>>,
@@ -640,7 +649,7 @@ impl SherpaEngine {
             recognizer.decode(&stream);
             stream
                 .get_result()
-                .map(|result| result.text)
+                .map(|result| clean_sherpa_transcript_text(result.text))
                 .ok_or_else(|| {
                     SherpaEngineError::TranscriptionFailed("No result returned".to_string())
                 })
@@ -812,4 +821,21 @@ fn validate_spec_files(
 
 fn validation_min_bytes(spec_min_bytes: u64) -> u64 {
     spec_min_bytes.min((spec_min_bytes / 100).max(1_024))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strips_qwen_asr_wrapper_text() {
+        assert_eq!(
+            clean_sherpa_transcript_text("language English<asr_text>Hello mate.".to_string()),
+            "Hello mate."
+        );
+        assert_eq!(
+            clean_sherpa_transcript_text("language None<asr_text>".to_string()),
+            ""
+        );
+    }
 }

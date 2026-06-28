@@ -7,6 +7,7 @@
 use super::clustering::{SpeakerClusterer, SpeakerClusteringConfig, cosine_similarity};
 use super::embedding::{EmbeddingError, EmbeddingExtractor};
 use super::timeline::{RollingDiarizationBuffer, SpeakerTimeline, SpeakerTimelineSegment};
+use std::collections::HashSet;
 use std::path::Path;
 
 /// Minimum samples needed for the fbank frontend to produce the 10 frames
@@ -14,6 +15,7 @@ use std::path::Path;
 const MIN_SAMPLES_FOR_EMBEDDING: usize = 1_840;
 const DEFAULT_DIARIZATION_WINDOW_SECONDS: f64 = 10.0;
 const DEFAULT_DIARIZATION_STRIDE_SECONDS: f64 = 5.0;
+const MAX_IMPORT_SINGLETON_SPEAKER_SECONDS: f64 = 1.0;
 const DIARIZATION_SAMPLE_RATE: u32 = 16_000;
 
 pub const DEFAULT_MIN_RELIABLE_SEGMENT_MS: u32 =
@@ -140,6 +142,14 @@ fn offline_clusters(
     }
 
     clusters
+}
+
+fn offline_cluster_duration(cluster: &OfflineCluster, records: &[OfflineEmbedding]) -> f64 {
+    cluster
+        .members
+        .iter()
+        .map(|index| records[*index].end_time - records[*index].start_time)
+        .sum()
 }
 
 pub struct DiarizationSession {
@@ -371,8 +381,23 @@ impl DiarizationSession {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
+        let mut used_labels = HashSet::new();
+        let cluster_count = clusters.len();
         for cluster in clusters {
-            let label = self.clusterer.assign(&cluster.centroid);
+            // ponytail: boundary blips under 1s are noise; keep them on the nearest stable speaker.
+            if cluster_count > 1
+                && offline_cluster_duration(&cluster, &records) < MAX_IMPORT_SINGLETON_SPEAKER_SECONDS
+            {
+                continue;
+            }
+
+            let mut label = self.clusterer.assign(&cluster.centroid);
+            if used_labels.contains(&label) {
+                label = self
+                    .clusterer
+                    .force_new_anonymous_cluster(&cluster.centroid);
+            }
+            used_labels.insert(label.clone());
             for record_index in cluster.members {
                 let record = &records[record_index];
                 labels[record.segment_index] = Some(label.clone());
@@ -393,6 +418,15 @@ impl DiarizationSession {
                 last_label = label.clone();
             } else {
                 *label = last_label.clone();
+            }
+        }
+
+        let mut next_label = None;
+        for label in labels.iter_mut().rev() {
+            if label.is_some() {
+                next_label = label.clone();
+            } else {
+                *label = next_label.clone();
             }
         }
 
