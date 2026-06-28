@@ -72,6 +72,8 @@ const IMPORT_VAD_DEFAULT_REDEMPTION_TIME_MS: u32 = 400;
 const IMPORT_VAD_BALANCED_REDEMPTION_TIME_MS: u32 = 800;
 const IMPORT_VAD_LOW_REDEMPTION_TIME_MS: u32 = 1500;
 const IMPORT_VAD_SMOOTH_REDEMPTION_TIME_MS: u32 = DEFAULT_IMPORT_VAD_REDEMPTION_TIME_MS;
+const IMPORT_DEFAULT_MAX_SEGMENT_SAMPLES: usize = 25 * 16000;
+const IMPORT_HIGH_DIARIZATION_MAX_SEGMENT_SAMPLES: usize = 8 * 16000;
 
 fn is_video_container(path: &Path) -> bool {
     path.extension()
@@ -153,6 +155,28 @@ fn import_vad_redemption_time_ms(
     };
 
     redemption_time_ms.max(IMPORT_VAD_MIN_SAFE_REDEMPTION_TIME_MS)
+}
+
+fn import_max_segment_samples(
+    diarization_ready: bool,
+    speaker_turn_sensitivity: Option<&str>,
+) -> usize {
+    if diarization_ready && speaker_turn_sensitivity.unwrap_or("high") == "high" {
+        IMPORT_HIGH_DIARIZATION_MAX_SEGMENT_SAMPLES
+    } else {
+        IMPORT_DEFAULT_MAX_SEGMENT_SAMPLES
+    }
+}
+
+fn apply_import_sensitivity_to_session_config(
+    mut config: crate::diarization::session::DiarizationSessionConfig,
+    speaker_turn_sensitivity: Option<&str>,
+) -> crate::diarization::session::DiarizationSessionConfig {
+    if speaker_turn_sensitivity.unwrap_or("high") == "high" {
+        config.clustering.cluster_similarity_threshold =
+            config.clustering.cluster_similarity_threshold.max(0.68);
+    }
+    config
 }
 
 /// Maximum file size: 20GB (prevents OOM and excessive processing time)
@@ -685,7 +709,12 @@ async fn run_import<R: Runtime>(
     // Import uses the same on-device diarization session as live recording.
     // Failure only disables speaker labels; transcription/import still succeeds.
     let mut diarization_session = if total_segments > 0 {
-        init_import_diarization_session(&app, expected_speakers).await
+        init_import_diarization_session(
+            &app,
+            expected_speakers,
+            speaker_turn_sensitivity.as_deref(),
+        )
+        .await
     } else {
         None
     };
@@ -693,18 +722,21 @@ async fn run_import<R: Runtime>(
     // Split very long segments at silence boundaries for better transcription quality.
     // Hard cuts at arbitrary sample positions lose words at boundaries. Instead, scan
     // for the lowest-energy window near the target split point and cut there.
-    const MAX_SEGMENT_SAMPLES: usize = 25 * 16000; // 25 seconds at 16kHz
+    let max_segment_samples = import_max_segment_samples(
+        diarization_session.is_some(),
+        speaker_turn_sensitivity.as_deref(),
+    );
 
     let mut processable_segments: Vec<crate::audio::vad::SpeechSegment> = Vec::new();
     for segment in &speech_segments {
-        if segment.samples.len() > MAX_SEGMENT_SAMPLES {
+        if segment.samples.len() > max_segment_samples {
             debug!(
                 "Splitting large segment ({:.0}ms, {} samples) at silence boundaries",
                 segment.end_timestamp_ms - segment.start_timestamp_ms,
                 segment.samples.len()
             );
 
-            let sub_segments = split_segment_at_silence(segment, MAX_SEGMENT_SAMPLES);
+            let sub_segments = split_segment_at_silence(segment, max_segment_samples);
             debug!("Split into {} sub-segments", sub_segments.len());
             processable_segments.extend(sub_segments);
         } else {
@@ -976,6 +1008,7 @@ async fn ready_import_diarization_model_id<R: Runtime>(app: &AppHandle<R>) -> Op
 async fn init_import_diarization_session<R: Runtime>(
     app: &AppHandle<R>,
     expected_speakers: Option<u32>,
+    speaker_turn_sensitivity: Option<&str>,
 ) -> Option<crate::diarization::DiarizationSession> {
     let Some(selected_model_id) = ready_import_diarization_model_id(app).await else {
         warn!(
@@ -1021,8 +1054,10 @@ async fn init_import_diarization_session<R: Runtime>(
     };
     let profile_count = profiles.len();
 
-    let mut session_config =
-        crate::diarization::models::import_session_config_for_model_id(&selected_model_id);
+    let mut session_config = apply_import_sensitivity_to_session_config(
+        crate::diarization::models::import_session_config_for_model_id(&selected_model_id),
+        speaker_turn_sensitivity,
+    );
     if let Some(expected_speakers) = expected_speakers {
         session_config.clustering.max_anonymous_speakers = expected_speakers.clamp(1, 20) as usize;
     }
@@ -1034,10 +1069,11 @@ async fn init_import_diarization_session<R: Runtime>(
     ) {
         Ok(session) => {
             info!(
-                "🎙️ ✅ Speaker identification active for imported audio ({} saved profile{}, max speakers={})",
+                "🎙️ ✅ Speaker identification active for imported audio ({} saved profile{}, max speakers={}, threshold={:.2})",
                 profile_count,
                 if profile_count == 1 { "" } else { "s" },
-                session_config.clustering.max_anonymous_speakers
+                session_config.clustering.max_anonymous_speakers,
+                session_config.clustering.cluster_similarity_threshold
             );
             Some(session)
         }
@@ -1661,6 +1697,26 @@ mod tests {
         assert_eq!(
             import_vad_redemption_time_ms(model_id, Some("high")),
             IMPORT_VAD_HIGH_REDEMPTION_TIME_MS
+        );
+    }
+
+    #[test]
+    fn test_high_import_sensitivity_tightens_diarization() {
+        let config = crate::diarization::models::import_session_config_for_model_id(
+            crate::diarization::models::DEFAULT_EMBEDDING_MODEL_ID,
+        );
+        let high_config = apply_import_sensitivity_to_session_config(config, Some("high"));
+
+        assert!(
+            import_max_segment_samples(true, Some("high")) < IMPORT_DEFAULT_MAX_SEGMENT_SAMPLES
+        );
+        assert!(
+            high_config.clustering.cluster_similarity_threshold
+                > config.clustering.cluster_similarity_threshold
+        );
+        assert_eq!(
+            import_max_segment_samples(false, Some("high")),
+            IMPORT_DEFAULT_MAX_SEGMENT_SAMPLES
         );
     }
 
